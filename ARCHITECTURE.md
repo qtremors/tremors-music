@@ -27,8 +27,6 @@ It is designed to be high-performance, handling libraries of 5,000+ songs with z
     
 - **Metadata:** `tinytag` (Fastest pure-python tag reader)
     
-- **Process Manager:** `uv` (Dependency management) + `honcho` (Process runner)
-    
 
 ### Frontend (The Interface)
 
@@ -51,65 +49,74 @@ This project uses a clean separation of concerns. Frontend and Backend are disti
 
 ```
 tremors-music/
-├── Procfile                 # Honcho config (Starts Backend & Frontend together)
-├── pyproject.toml           # Python dependencies (uv)
-├── uv.lock                  # Python lockfile
-│
-├── backend/                 # --- PYTHON ENVIRONMENT ---
-│   ├── .venv/               # Virtual Environment (Do not commit)
-│   ├── main.py              # Entry point. Configures CORS & Lifespan.
-│   ├── database.py          # SQLite connection & Session generator.
-│   ├── models.py            # Database Schema (Songs, Albums, Playlists).
-│   ├── scanner.py           # Recursive directory walker & tag parser.
-│   ├── music.db             # The Database File (Do not commit).
-│   └── router/              # API Endpoints
-│       ├── library.py       # Songs, Artists, Search, Reset logic.
-│       ├── media.py         # Cover Art extraction & Lyrics fetching.
-│       ├── playlists.py     # CRUD for Playlists.
-│       └── stream.py        # Audio Byte-Range Streaming.
-│
-└── frontend/                # --- NODE ENVIRONMENT ---
-    ├── vite.config.ts       # Proxy setup (Redirects /api -> localhost:8000)
-    ├── tailwind.config.js   # Design System (Colors, Fonts)
-    ├── src/
-        ├── components/      # Reusable UI Widgets
-        │   ├── Player.tsx   # The persistent bottom bar.
-        │   ├── SongList.tsx # The Virtualized List (Core Component).
-        │   └── ...
-        ├── pages/           # Full-Screen Route Views
-        │   ├── LibraryPage.tsx
-        │   ├── AlbumsPage.tsx
-        │   └── ...
-        ├── stores/          # Global State
-        │   ├── playerStore.ts # Audio logic (Play, Pause, Queue).
-        │   └── ...
-        ├── lib/             # Helpers
-        │   ├── api.ts       # Axios client with type definitions.
-        │   └── utils.ts     # Formatters (Time, Classnames).
-        └── App.tsx          # Router & Layout Shell.
+├── backend/                       # --- PYTHON ENVIRONMENT (FastAPI API and Data Layer) ---
+│   ├── router/                    # API ROUTERS (Separation of Endpoints)
+│   │   ├── library.py             # Logic for Songs List, Albums List, Artists List, and Sorting.
+│   │   ├── media.py               # Endpoints for Cover Art extraction and Lyrics fetching.
+│   │   ├── playlists.py           # CRUD operations for Playlists (Create, Add, Delete).
+│   │   └── stream.py              # Audio streaming endpoint (handles 206 Byte-Range requests).
+│   ├── database.py                # Database connection setup (SQLAlchemy/SQLite engine).
+│   ├── main.py                    # FastAPI application entry point, CORS, and lifespan configuration.
+│   ├── models.py                  # Database schema definitions (Song, Album, Playlist, etc.) using SQLModel.
+│   ├── pyproject.toml             # Python dependency list (used by uv).
+│   ├── scanner.py                 # Recursive directory scanning and metadata parsing logic.
+│   ├── streamer.py                # Python generator function for streaming file chunks.
+│   └── uv.lock                    # Dependency lock file (ensures consistent environment).
+├── frontend/                      # --- NODE ENVIRONMENT (React UI) ---
+│   ├── public/                    # Static assets not processed by Vite
+│   │   ├── music.svg              # Placeholder icon
+│   │   └── vite.svg               # Vite logo
+│   ├── src/                       # Application source code
+│   │   ├── assets/                # Assets processed by Vite
+│   │   │   └── react.svg
+│   │   ├── components/            # Reusable UI components
+│   │   │   ├── AddToPlaylistModal.tsx  # Modal to add selected songs to a playlist.
+│   │   │   ├── CreatePlaylistModal.tsx # Modal to create a new playlist (replaces ugly prompt).
+│   │   │   ├── FullScreenPlayer.tsx    # Immersive 'Now Playing' view (Art, Controls, Lyrics).
+│   │   │   ├── Player.tsx              # The persistent mini-player bar and audio controls.
+│   │   │   ├── SettingsModal.tsx       # Modal for managing library paths and UI settings.
+│   │   │   ├── SongList.tsx            # Virtualized list component for displaying songs.
+│   │   │   ├── SquigglyProgress.tsx    # Custom progress bar component (removed for standard bar later).
+│   │   │   └── ToastContainer.tsx      # Component for displaying non-blocking notifications.
+│   │   ├── lib/                       # Utility functions
+│   │   │   ├── api.ts                  # Axios client setup and API fetching functions (React Query integration).
+│   │   │   └── utils.ts                # Formatting helpers (time, file size) and className merger (cn).
+│   │   ├── pages/                     # Full-screen views mapped to routes
+│   │   │   ├── AlbumDetail.tsx         # Page showing tracks within a specific album.
+│   │   │   ├── AlbumsPage.tsx          # Grid view of all albums.
+│   │   │   ├── AllPlaylistsPage.tsx    # Grid view of all playlists with CRUD controls.
+│   │   │   ├── ArtistDetail.tsx        # Page showing all albums/songs for a specific artist.
+│   │   │   ├── ArtistsPage.tsx         # Grid view of all artists.
+│   │   │   ├── LibraryPage.tsx         # Main library list view (mounts SongList).
+│   │   │   ├── PlaylistDetail.tsx      # Page showing songs inside a specific playlist.
+│   │   │   ├── SearchPage.tsx          # Page for global search results.
+│   │   │   └── SettingsPage.tsx        # Page for managing paths, themes, and reset.
+│   │   ├── stores/                    # Zustand Global State
+│   │   │   ├── playerStore.ts          # Manages playback state, current song, queue, and persistence.
+│   │   │   ├── themeStore.ts           # Manages UI preferences (Dark/Light mode, accent color, art toggle).
+│   │   │   └── toastStore.ts           # Manages state for custom toast notifications.
+│   │   ├── App.tsx                    # Main router setup and layout shell.
+│   │   ├── index.css                  # Global Tailwind directives and custom CSS (e.g., glassmorphism).
+│   │   ├── main.tsx                   # React root entry point and QueryClient provider setup.
+│   │   └── types.ts                   # TypeScript interfaces matching SQLModel definitions (Song, Album, etc.).
+│   ├── eslint.config.js               # Frontend linting rules.
+│   ├── index.html                     # Vite's entry HTML file.
+│   ├── package-lock.json              # Specific dependency version locking.
+│   ├── package.json                   # Node dependencies list (React, Tailwind, Zustand, etc.).
+│   ├── postcss.config.js              # PostCSS configuration for Tailwind.
+│   ├── tailwind.config.js             # Tailwind configuration (theme, colors, plugins).
+│   ├── tsconfig.app.json              # TypeScript configuration for the application source files.
+│   ├── tsconfig.json                  # Base TypeScript configuration.
+│   ├── tsconfig.node.json             # TypeScript configuration for Node environment files (Vite, etc.).
+│   └── vite.config.ts                 # Vite configuration (HMR, React plugins, and API proxy setup).
+├── .gitattributes                 # Git configuration for file handling.
+├── .gitignore                     # Files/folders to ignore from Git tracking.
+├── ARCHITECTURE.md                # Project structure, rules, and technical explanations.
+└── README.md                      # Project introduction and quick start guide.
 ```
-
-## 4. Critical Development Rules
-
-### ✅ DO:
-
-1. **Use Calculated Heights for Lists:** When using `react-virtuoso`, **never** rely on nested flexbox expansion (`flex-1`). It causes the "0px Height Bug". Always use `absolute inset-0` or `height: calc(100vh - X)` to enforce dimensions.
-    
-2. **Normalize Paths:** Always use `os.path.normpath()` in Python before saving/comparing file paths to avoid OS-specific duplicates.
-    
-3. **Use `uv`:** It is significantly faster than pip. Use `uv add package` to install new backend libs.
     
 
-### ❌ DO NOT:
-
-1. **Do Not Commit `music.db`:** This file is local to your machine.
-    
-2. **Do Not Block the Main Thread:** File scanning must happen in `BackgroundTasks`.
-    
-3. **Do Not Use `prompt()`:** Use the custom Modal components (`CreatePlaylistModal`) for user input. It breaks immersion.
-    
-
-## 5. Database Schema
+## 4. Database Schema
 
 The database is normalized to reduce redundancy.
 
@@ -122,7 +129,7 @@ The database is normalized to reduce redundancy.
 - **PlaylistSong:** A link table that allows a song to be in multiple playlists with a specific order.
     
 
-## 6. Future Improvements (Roadmap)
+## 5. Future Improvements (Roadmap)
 
 - **File Watcher:** Implement `watchdog` to auto-update the DB when files are added/deleted on disk.
     

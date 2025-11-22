@@ -45,14 +45,15 @@ It combines the raw power of a **Python backend** (for file system access and me
 
 1. **Clone the repository:**
     
-    ```
-    git clone [https://github.com/yourusername/tremors-music.git](https://github.com/yourusername/tremors-music.git)
+    ```bash
+    git clone https://github.com/qtremors/tremors-music.git
+
     cd tremors-music
     ```
     
 2. **Install Backend Dependencies:**
     
-    ```
+    ```bash
     cd backend
     uv sync
     cd ..
@@ -60,7 +61,7 @@ It combines the raw power of a **Python backend** (for file system access and me
     
 3. **Install Frontend Dependencies:**
     
-    ```
+    ```bash
     cd frontend
     npm install
     cd ..
@@ -73,14 +74,14 @@ You can start both servers manually in separate terminals:
 
 **Terminal 1 (Backend):**
 
-```
+```bash
 cd backend
 uv run uvicorn main:app --reload
 ```
 
 **Terminal 2 (Frontend):**
 
-```
+```bash
 cd frontend
 npm run dev
 ```
@@ -100,9 +101,6 @@ npm run dev
     
 4. **Play:** Go to "Songs" or "Albums" and start listening!
     
+---
 
-## 🤝 Contributing
-
-Contributions are welcome! Please check `ARCHITECTURE.md` for detailed structural information and development guidelines.
-
-_Built with ❤️ by Tremors_
+Built with 💖 by Tremors
