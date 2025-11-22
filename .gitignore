@@ -1,0 +1,33 @@
+# --- Global ---
+.DS_Store
+.env
+.env.local
+
+# --- Backend (Python) ---
+# Python cache and bytecode
+__pycache__/
+*.pyc
+
+# Virtual Environment (as seen in your image)
+.venv/
+backend/.venv/
+
+# SQLite Database (prevent uploading local data)
+*.db
+backend/music.db
+
+# Version management (optional, often local specific)
+.python-version
+
+# --- Frontend (Node/JS) ---
+# Dependencies
+node_modules/
+
+# Build outputs (standard for frontend builds)
+dist/
+build/
+
+# Debugging logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
