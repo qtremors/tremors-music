@@ -21,3 +21,39 @@ export function formatSize(bytes: number): string {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
+
+// Format bitrate
+export function formatBitrate(kbps: number | null | undefined): string {
+  if (!kbps) return 'Unknown';
+  return `${kbps} kbps`;
+}
+
+// Format sample rate
+export function formatSampleRate(hz: number | null | undefined): string {
+  if (!hz) return 'Unknown';
+  if (hz >= 1000) {
+    return `${(hz / 1000).toFixed(1)} kHz`;
+  }
+  return `${hz} Hz`;
+}
+
+// Format channels
+export function formatChannels(channels: number | null | undefined): string {
+  if (!channels) return 'Unknown';
+  if (channels === 1) return 'Mono';
+  if (channels === 2) return 'Stereo';
+  if (channels === 6) return '5.1 Surround';
+  return `${channels} channels`;
+}
+
+// Debounce function
+export function debounce<T extends (...args: any[]) => any>(
+  func: T,
+  wait: number
+): (...args: Parameters<T>) => void {
+  let timeout: NodeJS.Timeout;
+  return (...args: Parameters<T>) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  };
+}
