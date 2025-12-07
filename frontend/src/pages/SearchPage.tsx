@@ -38,8 +38,37 @@ export function SearchPage() {
     navigate(`/album/${album.id}`);
   };
 
-  // Determine top result (best match)
-  const topResult = results?.albums[0] || results?.artists[0] || null;
+  // Determine top result - prioritize exact matches
+  let topResult: any = null;
+  let topResultType: 'album' | 'artist' | null = null;
+
+  if (results && query) {
+    const lowerQuery = query.toLowerCase();
+
+    // Check for exact artist match first
+    const exactArtist = results.artists.find(a => a.name.toLowerCase() === lowerQuery);
+    if (exactArtist) {
+      topResult = exactArtist;
+      topResultType = 'artist';
+    }
+    // Then check for exact album match
+    else if (results.albums.length > 0) {
+      const exactAlbum = results.albums.find(a => a.title.toLowerCase() === lowerQuery);
+      if (exactAlbum) {
+        topResult = exactAlbum;
+        topResultType = 'album';
+      } else {
+        // Default to first album if no exact match
+        topResult = results.albums[0];
+        topResultType = 'album';
+      }
+    }
+    // Fallback to first artist
+    else if (results.artists.length > 0) {
+      topResult = results.artists[0];
+      topResultType = 'artist';
+    }
+  }
 
   return (
     <div className="h-full flex flex-col bg-apple-gray">
@@ -60,31 +89,48 @@ export function SearchPage() {
         ) : (
           <div className="space-y-8">
             {/* Top Result */}
-            {topResult && results.albums[0] && (
+            {topResult && (
               <div>
                 <h3 className="text-lg font-semibold text-apple-text mb-4">Top Result</h3>
-                <div
-                  onClick={() => handlePlayAlbum(results.albums[0])}
-                  className="flex items-center gap-6 p-6 rounded-xl bg-gradient-to-br from-apple-accent/10 to-transparent hover:from-apple-accent/20 cursor-pointer group transition-all border border-apple-accent/20"
-                >
-                  <div className="w-32 h-32 rounded-lg overflow-hidden shadow-xl flex-shrink-0">
-                    <img
-                      src={getCoverUrl(results.albums[0].id)}
-                      alt={results.albums[0].title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-4xl font-bold text-apple-text mb-2 truncate group-hover:text-apple-accent transition">
-                      {results.albums[0].title}
+                {topResultType === 'album' ? (
+                  <div
+                    onClick={() => handlePlayAlbum(topResult)}
+                    className="flex items-center gap-6 p-6 rounded-xl bg-gradient-to-br from-apple-accent/10 to-transparent hover:from-apple-accent/20 cursor-pointer group transition-all border border-apple-accent/20"
+                  >
+                    <div className="w-32 h-32 rounded-lg overflow-hidden shadow-xl flex-shrink-0">
+                      <img
+                        src={getCoverUrl(topResult.id)}
+                        alt={topResult.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
                     </div>
-                    <div className="text-lg text-apple-subtext mb-3 truncate">{results.albums[0].artist}</div>
-                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-white dark:bg-gray-800 rounded-full text-xs font-medium text-apple-subtext">
-                      <Disc size={14} />
-                      Album
+                    <div className="flex-1 min-w-0">
+                      <div className="text-4xl font-bold text-apple-text mb-2 truncate group-hover:text-apple-accent transition">
+                        {topResult.title}
+                      </div>
+                      <div className="text-lg text-apple-subtext mb-3 truncate">{topResult.artist}</div>
+                      <div className="inline-flex items-center gap-2 px-3 py-1 bg-white dark:bg-gray-800 rounded-full text-xs font-medium text-apple-subtext">
+                        <Disc size={14} />
+                        Album
+                      </div>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="flex items-center gap-6 p-6 rounded-xl bg-gradient-to-br from-apple-accent/10 to-transparent hover:from-apple-accent/20 cursor-pointer group transition-all border border-apple-accent/20">
+                    <div className="w-32 h-32 rounded-full bg-gradient-to-br from-apple-accent/30 to-apple-accent/10 flex items-center justify-center shadow-xl flex-shrink-0 group-hover:scale-105 transition-transform">
+                      <User size={64} className="text-apple-accent" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-4xl font-bold text-apple-text mb-2 truncate group-hover:text-apple-accent transition">
+                        {topResult.name}
+                      </div>
+                      <div className="inline-flex items-center gap-2 px-3 py-1 bg-white dark:bg-gray-800 rounded-full text-xs font-medium text-apple-subtext mt-2">
+                        <User size={14} />
+                        Artist
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -142,14 +188,14 @@ export function SearchPage() {
             )}
 
             {/* Albums Section - Grid */}
-            {results.albums.length > 1 && (
+            {results.albums.length > 0 && (topResultType !== 'album' || results.albums.length > 1) && (
               <div>
                 <h3 className="text-lg font-semibold text-apple-text mb-4 flex items-center gap-2">
                   <Disc size={20} className="text-apple-accent" />
                   Albums
                 </h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                  {results.albums.slice(1).map((album) => (
+                  {(topResultType === 'album' ? results.albums.slice(1) : results.albums).map((album) => (
                     <div
                       key={album.id}
                       onClick={() => handlePlayAlbum(album)}
@@ -178,14 +224,14 @@ export function SearchPage() {
             )}
 
             {/* Artists Section - Grid */}
-            {results.artists.length > 0 && (
+            {results.artists.length > 0 && (topResultType !== 'artist' || results.artists.length > 1) && (
               <div>
                 <h3 className="text-lg font-semibold text-apple-text mb-4 flex items-center gap-2">
                   <User size={20} className="text-apple-accent" />
                   Artists
                 </h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                  {results.artists.map((artist, idx) => (
+                  {(topResultType === 'artist' ? results.artists.slice(1) : results.artists).map((artist, idx) => (
                     <div
                       key={idx}
                       className="flex flex-col items-center p-4 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-apple-accent dark:hover:border-apple-accent cursor-pointer transition group"
