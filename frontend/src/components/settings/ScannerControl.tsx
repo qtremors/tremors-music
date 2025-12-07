@@ -1,9 +1,15 @@
-// Scanner control with progress tracking
+// Scanner control with progress tracking and error details
 import { useState, useEffect, useRef } from 'react';
-import { RefreshCw, StopCircle, CheckCircle, AlertCircle, Clock } from 'lucide-react';
+import { RefreshCw, StopCircle, CheckCircle, AlertCircle, Clock, ChevronDown, ChevronUp } from 'lucide-react';
 import api from '../../lib/api';
 import { Card } from '../common/Card';
 import { Button } from '../common/Button';
+
+interface ErrorDetail {
+    file_path: string;
+    error_message: string;
+    timestamp: string;
+}
 
 interface LastScanResult {
     files_processed: number;
@@ -11,6 +17,7 @@ interface LastScanResult {
     errors: number;
     duration: number;
     completed_at: string;
+    error_details: ErrorDetail[];
 }
 
 interface ScanProgress {
@@ -20,12 +27,14 @@ interface ScanProgress {
     errors: number;
     current_file: string;
     start_time: number | null;
+    error_details: ErrorDetail[];
     last_scan_result: LastScanResult | null;
 }
 
 export function ScannerControl() {
     const [isScanning, setIsScanning] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [showErrors, setShowErrors] = useState(false);
     const [progress, setProgress] = useState<ScanProgress>({
         is_scanning: false,
         files_processed: 0,
@@ -33,6 +42,7 @@ export function ScannerControl() {
         errors: 0,
         current_file: '',
         start_time: null,
+        error_details: [],
         last_scan_result: null
     });
     const pollInterval = useRef<NodeJS.Timeout | null>(null);
@@ -116,6 +126,10 @@ export function ScannerControl() {
         return date.toLocaleString();
     };
 
+    const getFileName = (path: string) => {
+        return path.split(/[/\\]/).pop() || path;
+    };
+
     return (
         <Card className="mt-4">
             <div className="space-y-4">
@@ -159,7 +173,7 @@ export function ScannerControl() {
 
                         {progress.current_file && (
                             <div className="text-xs text-apple-subtext truncate">
-                                📁 {progress.current_file}
+                                📁 {getFileName(progress.current_file)}
                             </div>
                         )}
 
@@ -177,6 +191,31 @@ export function ScannerControl() {
                                 <div className="text-xs text-apple-subtext">Errors</div>
                             </div>
                         </div>
+
+                        {/* Live error list during scan */}
+                        {progress.error_details.length > 0 && (
+                            <div className="pt-2 border-t border-gray-200 dark:border-white/10">
+                                <button
+                                    onClick={() => setShowErrors(!showErrors)}
+                                    className="flex items-center justify-between w-full text-xs font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition"
+                                >
+                                    <span>{progress.error_details.length} file{progress.error_details.length !== 1 ? 's' : ''} failed</span>
+                                    {showErrors ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                </button>
+                                {showErrors && (
+                                    <div className="mt-2 max-h-40 overflow-y-auto space-y-1">
+                                        {progress.error_details.map((err, idx) => (
+                                            <div key={idx} className="text-xs p-2 bg-red-50 dark:bg-red-900/10 rounded border border-red-200 dark:border-red-800">
+                                                <div className="font-medium text-red-700 dark:text-red-300 truncate" title={err.file_path}>
+                                                    {getFileName(err.file_path)}
+                                                </div>
+                                                <div className="text-red-600 dark:text-red-400 mt-0.5">{err.error_message}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -211,6 +250,31 @@ export function ScannerControl() {
                         <div className="text-xs text-blue-600 dark:text-blue-400 mt-2">
                             Completed: {formatDate(progress.last_scan_result.completed_at)}
                         </div>
+
+                        {/* Error details from last scan */}
+                        {progress.last_scan_result.error_details && progress.last_scan_result.error_details.length > 0 && (
+                            <div className="mt-3 pt-3 border-t border-blue-200 dark:border-blue-700">
+                                <button
+                                    onClick={() => setShowErrors(!showErrors)}
+                                    className="flex items-center justify-between w-full text-xs font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition"
+                                >
+                                    <span>View {progress.last_scan_result.error_details.length} failed file{progress.last_scan_result.error_details.length !== 1 ? 's' : ''}</span>
+                                    {showErrors ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                </button>
+                                {showErrors && (
+                                    <div className="mt-2 max-h-60 overflow-y-auto space-y-1">
+                                        {progress.last_scan_result.error_details.map((err, idx) => (
+                                            <div key={idx} className="text-xs p-2 bg-red-50 dark:bg-red-900/10 rounded border border-red-200 dark:border-red-800">
+                                                <div className="font-medium text-red-700 dark:text-red-300 truncate" title={err.file_path}>
+                                                    📄 {getFileName(err.file_path)}
+                                                </div>
+                                                <div className="text-red-600 dark:text-red-400 mt-0.5">{err.error_message}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

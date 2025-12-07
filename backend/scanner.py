@@ -32,10 +32,11 @@ def safe_int(value, default=None):
         return default
 
 def clean_string(value):
-    """Remove null bytes and strip whitespace."""
+    """Remove null bytes and strip whitespace. Always returns a string, never None."""
     if value is None:
-        return None
-    return str(value).replace('\x00', '').strip() or None
+        return ""
+    result = str(value).replace('\x00', '').strip()
+    return result if result else ""
 
 def scan_directory(root_directory: str):
     if not os.path.exists(root_directory): return
@@ -67,10 +68,10 @@ def scan_directory(root_directory: str):
                             continue
                         
                         # --- BASIC INFORMATION ---
-                        title = clean_string(safe_get(audio, 'title', file))
-                        artist = clean_string(safe_get(audio, 'artist', 'Unknown Artist'))
-                        album_title = clean_string(safe_get(audio, 'album', 'Unknown Album'))
-                        album_artist = clean_string(safe_get(audio, 'albumartist', artist))
+                        title = clean_string(safe_get(audio, 'title', file)) or file
+                        artist = clean_string(safe_get(audio, 'artist', 'Unknown Artist')) or 'Unknown Artist'
+                        album_title = clean_string(safe_get(audio, 'album', 'Unknown Album')) or 'Unknown Album'
+                        album_artist = clean_string(safe_get(audio, 'albumartist', artist)) or artist
                         
                         # --- ALBUM MANAGEMENT ---
                         album_key = (album_title.lower(), album_artist.lower())
@@ -214,8 +215,13 @@ def scan_directory(root_directory: str):
                             session.commit()
                             
                     except Exception as e:
-                        # Silently skip corrupted or unsupported files
-                        scanner_progress.update(errors=1)
+                        # Track detailed error information
+                        error_msg = str(e) if str(e) else "Unknown error"
+                        scanner_progress.update(
+                            errors=1,
+                            error_file=full_path,
+                            error_msg=error_msg
+                        )
                         pass
 
         session.commit()

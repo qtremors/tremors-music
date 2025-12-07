@@ -103,6 +103,7 @@ export function AlbumDetail() {
         <div className="space-y-1">
           {songs?.map((song, index) => {
             const isCurrent = currentSong?.id === song.id;
+            const trackNum = song.track_number || index + 1;
             return (
               <div
                 key={song.id}
@@ -119,7 +120,7 @@ export function AlbumDetail() {
                   {isCurrent ? (
                     <Play size={12} fill="currentColor" className="text-apple-accent mx-auto" />
                   ) : (
-                    <span className="group-hover:hidden">{index + 1}</span>
+                    <span className="group-hover:hidden">{trackNum}</span>
                   )}
                   <Play size={12} fill="currentColor" className="hidden group-hover:block mx-auto text-apple-text" />
                 </div>
