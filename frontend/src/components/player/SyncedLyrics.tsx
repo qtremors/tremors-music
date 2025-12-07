@@ -47,14 +47,17 @@ export function SyncedLyrics({ lyrics, currentTime, className }: SyncedLyricsPro
         setParsedLines(lines);
     }, [lyrics]);
 
-    // Update current line based on time
+    // Update current line based on time with offset to sync better
     useEffect(() => {
         if (parsedLines.length === 0) return;
+
+        // Add 0.3s offset to account for processing delay and make it feel more responsive
+        const adjustedTime = currentTime + 0.3;
 
         // Find the current line (last line whose time has passed)
         let index = -1;
         for (let i = 0; i < parsedLines.length; i++) {
-            if (parsedLines[i].time <= currentTime) {
+            if (parsedLines[i].time <= adjustedTime) {
                 index = i;
             } else {
                 break;
@@ -86,7 +89,7 @@ export function SyncedLyrics({ lyrics, currentTime, className }: SyncedLyricsPro
 
     if (parsedLines.length === 0) {
         return (
-            <div className={cn("whitespace-pre-wrap text-2xl font-bold text-white/80 leading-relaxed space-y-8 pb-20", className)}>
+            <div className={cn("whitespace-pre-wrap text-2xl font-bold text-white/80 leading-relaxed space-y-8 pb-20 px-4", className)}>
                 {lyrics}
             </div>
         );
@@ -94,7 +97,7 @@ export function SyncedLyrics({ lyrics, currentTime, className }: SyncedLyricsPro
 
     return (
         <div ref={containerRef} className={cn("overflow-y-auto no-scrollbar pb-20", className)}>
-            <div className="space-y-6 pt-[40vh]">
+            <div className="space-y-6 pt-[40vh] px-4">
                 {parsedLines.map((line, index) => (
                     <div
                         key={index}
