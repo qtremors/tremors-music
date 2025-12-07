@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { AnimatePresence } from 'framer-motion';
 import { LibraryPage } from './pages/LibraryPage';
 import { SearchPage } from './pages/SearchPage';
 import { AlbumsPage } from './pages/AlbumsPage';
@@ -22,29 +23,24 @@ import {
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 
 // --- Sidebar Component ---
-// Handles navigation, playlists list, and global search input
 function Sidebar({ setIsCreatingPlaylist }: { setIsCreatingPlaylist: (val: boolean) => void }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [search, setSearch] = useState('');
 
-  // Fetch Playlists for the sidebar list
   const { data: playlists } = useQuery({ queryKey: ['playlists'], queryFn: getPlaylists });
 
-  // Debounced Search Logic
   useEffect(() => {
     const timer = setTimeout(() => {
-      // Only navigate if there is a query or if we are already on the search page
       if (search.trim()) {
         navigate(`/search?q=${encodeURIComponent(search)}`);
       } else if (location.pathname === '/search' && !search.trim()) {
-        navigate('/'); // Go home if search is cleared while on search page
+        navigate('/');
       }
     }, 300);
     return () => clearTimeout(timer);
   }, [search, navigate]);
 
-  // Clear search input when navigating away from search page manually
   useEffect(() => {
     if (location.pathname !== '/search') {
       setSearch('');
@@ -54,7 +50,6 @@ function Sidebar({ setIsCreatingPlaylist }: { setIsCreatingPlaylist: (val: boole
   return (
     <div className="fixed top-0 left-0 w-64 h-full pb-28 bg-gray-50/80 dark:bg-black/50 border-r border-gray-200 dark:border-white/10 hidden lg:flex flex-col p-6 z-20 backdrop-blur-xl">
 
-      {/* Header & Search */}
       <div className="mb-6 px-2 flex-shrink-0">
         <h1 className="text-2xl font-bold text-apple-accent flex items-center gap-2 mb-6 select-none">
           <Library /> Tremors
@@ -72,7 +67,6 @@ function Sidebar({ setIsCreatingPlaylist }: { setIsCreatingPlaylist: (val: boole
         </div>
       </div>
 
-      {/* Main Navigation Links */}
       <nav className="space-y-1 flex-shrink-0">
         <NavLink to="/" className={({ isActive }) => cn("w-full text-left px-3 py-2 rounded-md font-medium flex items-center gap-3 transition", isActive ? "bg-gray-200 dark:bg-white/10 text-apple-text" : "text-apple-subtext hover:text-apple-text hover:bg-white/5")}>
           <Music size={18} /> Songs
@@ -85,7 +79,6 @@ function Sidebar({ setIsCreatingPlaylist }: { setIsCreatingPlaylist: (val: boole
         </NavLink>
       </nav>
 
-      {/* Playlists Header */}
       <div className="mt-8 mb-2 px-3 flex items-center justify-between group flex-shrink-0">
         <NavLink to="/playlists" className={({ isActive }) => cn("text-xs font-bold uppercase tracking-wider flex-1 transition", isActive ? "text-apple-accent" : "text-apple-subtext hover:text-apple-text")}>
           Playlists
@@ -99,7 +92,6 @@ function Sidebar({ setIsCreatingPlaylist }: { setIsCreatingPlaylist: (val: boole
         </button>
       </div>
 
-      {/* Playlists Scrollable List */}
       <div className="space-y-1 overflow-y-auto flex-1 min-h-0 no-scrollbar -mx-2 px-2">
         {playlists?.map(pl => (
           <NavLink
@@ -121,7 +113,6 @@ function Sidebar({ setIsCreatingPlaylist }: { setIsCreatingPlaylist: (val: boole
         )}
       </div>
 
-      {/* Settings Link (Bottom) */}
       <div className="mt-4 pt-4 border-t border-gray-200 dark:border-white/5 flex-shrink-0">
         <NavLink to="/settings" className={({ isActive }) => cn("flex items-center gap-2 text-sm font-medium transition p-3 rounded-lg w-full", isActive ? "bg-apple-accent/10 text-apple-accent" : "text-apple-subtext hover:text-apple-text hover:bg-black/5 dark:hover:bg-white/5")}>
           <Settings size={18} /> Settings
@@ -131,11 +122,10 @@ function Sidebar({ setIsCreatingPlaylist }: { setIsCreatingPlaylist: (val: boole
   );
 }
 
-function App() {
-  // Global state for the "Create Playlist" modal
+function AppContent() {
+  const location = useLocation();
   const [isCreatingPlaylist, setIsCreatingPlaylist] = useState(false);
 
-  // Keyboard shortcuts
   useKeyboardShortcuts({
     onFocusSearch: () => {
       const searchInput = document.querySelector('input[placeholder="Search Library"]') as HTMLInputElement;
@@ -144,15 +134,12 @@ function App() {
   });
 
   return (
-    <BrowserRouter>
-      <div className="min-h-screen flex flex-col bg-apple-gray transition-colors duration-300 text-apple-text font-sans selection:bg-apple-accent/30">
+    <div className="min-h-screen flex flex-col bg-apple-gray transition-colors duration-300 text-apple-text font-sans selection:bg-apple-accent/30">
+      <Sidebar setIsCreatingPlaylist={setIsCreatingPlaylist} />
 
-        {/* Sidebar (Hidden on mobile, visible on lg screens) */}
-        <Sidebar setIsCreatingPlaylist={setIsCreatingPlaylist} />
-
-        {/* Main Content Area */}
-        <div className="lg:ml-64 flex-1 flex flex-col h-screen pb-24 relative z-0 overflow-hidden">
-          <Routes>
+      <div className="lg:ml-64 flex-1 flex flex-col h-screen pb-24 relative z-0 overflow-hidden">
+        <AnimatePresence mode="wait">
+          <Routes location={location} key={location.pathname}>
             <Route path="/" element={<LibraryPage />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/albums" element={<AlbumsPage />} />
@@ -163,17 +150,20 @@ function App() {
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/artists/:name" element={<ArtistDetail />} />
           </Routes>
-        </div>
-
-        {/* Global Fixed Components */}
-        <Player />
-        <ToastContainer />
-
-        {/* Modals */}
-        {isCreatingPlaylist && <CreatePlaylistModal onClose={() => setIsCreatingPlaylist(false)} />}
+        </AnimatePresence>
       </div>
-    </BrowserRouter>
+
+      <Player />
+      <ToastContainer />
+      {isCreatingPlaylist && <CreatePlaylistModal onClose={() => setIsCreatingPlaylist(false)} />}
+    </div>
   );
 }
 
-export default App;
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AppContent />
+    </BrowserRouter>
+  );
+}
