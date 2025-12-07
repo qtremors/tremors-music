@@ -10,9 +10,10 @@ interface PlayerState {
   volume: number;
   queue: Song[];
   originalQueue: Song[];
+  currentIndex: number;
   repeatMode: RepeatMode;
   isShuffle: boolean;
-  
+
   playSong: (song: Song) => void;
   togglePlay: () => void;
   setIsPlaying: (isPlaying: boolean) => void;
@@ -22,6 +23,9 @@ interface PlayerState {
   playPrev: () => void;
   toggleShuffle: () => void;
   toggleRepeat: () => void;
+  reorderQueue: (oldIndex: number, newIndex: number) => void;
+  removeFromQueue: (index: number) => void;
+  clearQueue: () => void;
 }
 
 export const usePlayerStore = create<PlayerState>()(
@@ -32,17 +36,18 @@ export const usePlayerStore = create<PlayerState>()(
       volume: 1,
       queue: [],
       originalQueue: [],
+      currentIndex: -1,
       repeatMode: 'off',
       isShuffle: false,
 
       playSong: (song) => set({ currentSong: song, isPlaying: true }),
-      
+
       togglePlay: () => set((state) => ({ isPlaying: !state.isPlaying })),
-      
+
       setIsPlaying: (isPlaying) => set({ isPlaying }),
-      
+
       setVolume: (val) => set({ volume: val }),
-      
+
       setQueue: (songs) => set({ queue: songs, originalQueue: songs }),
 
       toggleShuffle: () => {
@@ -58,8 +63,8 @@ export const usePlayerStore = create<PlayerState>()(
           if (currentSong) {
             const idx = newQueue.findIndex(s => s.id === currentSong.id);
             if (idx > -1) {
-                newQueue.splice(idx, 1);
-                newQueue.unshift(currentSong);
+              newQueue.splice(idx, 1);
+              newQueue.unshift(currentSong);
             }
           }
           set({ isShuffle: true, queue: newQueue });
@@ -79,10 +84,10 @@ export const usePlayerStore = create<PlayerState>()(
         if (!currentSong) return;
 
         if (repeatMode === 'one') {
-            set({ isPlaying: true }); 
-            const audio = document.querySelector('audio');
-            if (audio) { audio.currentTime = 0; audio.play(); }
-            return; 
+          set({ isPlaying: true });
+          const audio = document.querySelector('audio');
+          if (audio) { audio.currentTime = 0; audio.play(); }
+          return;
         }
 
         const idx = queue.findIndex(s => s.id === currentSong.id);
@@ -102,11 +107,38 @@ export const usePlayerStore = create<PlayerState>()(
         if (idx > 0) {
           set({ currentSong: queue[idx - 1], isPlaying: true });
         } else {
-            // If at start of list, restart song
-            const audio = document.querySelector('audio');
-            if (audio) audio.currentTime = 0;
+          // If at start of list, restart song
+          const audio = document.querySelector('audio');
+          if (audio) audio.currentTime = 0;
         }
-      }
+      },
+
+      // Queue management actions
+      reorderQueue: (oldIndex: number, newIndex: number) => {
+        const { queue, currentIndex, currentSong } = get();
+        const newQueue = [...queue];
+        const [removed] = newQueue.splice(oldIndex, 1);
+        newQueue.splice(newIndex, 0, removed);
+
+        // Update current index if needed
+        const newCurrentIndex = newQueue.findIndex(s => s.id === currentSong?.id);
+
+        set({ queue: newQueue, currentIndex: newCurrentIndex });
+      },
+
+      removeFromQueue: (index: number) => {
+        const { queue, currentIndex, currentSong } = get();
+        const newQueue = queue.filter((_, i) => i !== index);
+
+        // Update current index if needed
+        const newCurrentIndex = newQueue.findIndex(s => s.id === currentSong?.id);
+
+        set({ queue: newQueue, currentIndex: newCurrentIndex });
+      },
+
+      clearQueue: () => {
+        set({ queue: [], originalQueue: [], currentIndex: -1 });
+      },
     }),
     {
       name: 'tremors-player-storage',
