@@ -2,7 +2,10 @@ from fastapi import APIRouter, Depends, Response
 from sqlmodel import Session, select
 from database import get_session
 from models import Album, Song
-from tinytag import TinyTag
+from mutagen import File as MutagenFile
+from mutagen.id3 import ID3, APIC
+from mutagen.flac import FLAC, Picture
+from mutagen.mp4 import MP4
 import os
 import requests
 import base64
@@ -24,8 +27,27 @@ def get_album_cover(album_id: int, session: Session = Depends(get_session)):
     for song in songs:
         if not os.path.exists(song.path): continue
         try:
-            tag = TinyTag.get(song.path, image=True)
-            image_data = tag.get_image()
+            audio = MutagenFile(song.path)
+            if audio is None:
+                continue
+            
+            image_data = None
+            
+            # MP3 with ID3 tags
+            if isinstance(audio, ID3) or hasattr(audio, 'tags') and isinstance(audio.tags, ID3):
+                for key in audio.tags.keys():
+                    if key.startswith('APIC'):
+                        image_data = audio.tags[key].data
+                        break
+            
+            # FLAC
+            elif isinstance(audio, FLAC) and audio.pictures:
+                image_data = audio.pictures[0].data
+            
+            # MP4/M4A
+            elif isinstance(audio, MP4) and 'covr' in audio.tags:
+                image_data = bytes(audio.tags['covr'][0])
+            
             if image_data:
                 return Response(content=image_data, media_type="image/jpeg")
         except:
