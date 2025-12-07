@@ -148,82 +148,52 @@ def get_songs(
     return session.exec(query.offset(offset).limit(limit)).all()
 
 # --- SEARCH ---
-@router.get("/search", response_model=List[Song])
-def search_songs(
-    q: str = "",
-    year_min: int | None = None,
-    year_max: int | None = None,
-    bpm_min: int | None = None,
-    bpm_max: int | None = None,
-    rating_min: int | None = None,
-    genre: str | None = None,
-    duration_min: int | None = None,
-    duration_max: int | None = None,
-    format: str | None = None,
-    limit: int = 100,
-    session: Session = Depends(get_session)
-):
+@router.get("/search", response_model=Dict[str, Any])
+def search_library(q: str = "", limit: int = 50, session: Session = Depends(get_session)):
     """
-    Advanced search with text query and filters.
-    
-    - q: Search in title, artist, album, composer
-    - year_min/max: Filter by year range
-    - bpm_min/max: Filter by BPM range
-    - rating_min: Minimum rating (1-5)
-    - genre: Filter by genre (exact match)
-    - duration_min/max: Filter by duration in seconds
-    - format: Filter by file format (mp3, flac, etc.)
-    - limit: Maximum results (default 100)
+    Instant search across songs, albums, and artists.
+    Returns results grouped by type.
     """
-    query = select(Song)
+    if not q:
+        return {"songs": [], "albums": [], "artists": []}
     
-    # Text search across multiple fields
-    if q:
-        search_term = f"%{q}%"
-        query = query.where(
+    search_term = f"%{q}%"
+    
+    # Search songs - join with Album to search album titles
+    songs = session.exec(
+        select(Song).join(Album, isouter=True).where(
             or_(
                 Song.title.ilike(search_term),
                 Song.artist.ilike(search_term),
-                Song.album_title.ilike(search_term),
-                Song.composer.ilike(search_term)
+                Album.title.ilike(search_term)
             )
-        )
+        ).limit(limit)
+    ).all()
     
-    # Year filter
-    if year_min is not None:
-        query = query.where(Song.year >= year_min)
-    if year_max is not None:
-        query = query.where(Song.year <= year_max)
+    # Search albums
+    albums = session.exec(
+        select(Album).where(
+            or_(
+                Album.title.ilike(search_term),
+                Album.artist.ilike(search_term)
+            )
+        ).limit(20)
+    ).all()
     
-    # BPM filter
-    if bpm_min is not None:
-        query = query.where(Song.bpm >= bpm_min)
-    if bpm_max is not None:
-        query = query.where(Song.bpm <= bpm_max)
+    # Get unique artists from songs
+    artists_query = session.exec(
+        select(Song.artist).where(
+            Song.artist.ilike(search_term)
+        ).distinct().limit(20)
+    ).all()
     
-    # Rating filter
-    if rating_min is not None:
-        query = query.where(Song.rating >= rating_min)
+    artists = [{"name": artist} for artist in artists_query if artist]
     
-    # Genre filter
-    if genre:
-        query = query.where(Song.genre.ilike(f"%{genre}%"))
-    
-    # Duration filter
-    if duration_min is not None:
-        query = query.where(Song.duration >= duration_min)
-    if duration_max is not None:
-        query = query.where(Song.duration <= duration_max)
-    
-    # Format filter
-    if format:
-        query = query.where(Song.format.ilike(f"%{format}%"))
-    
-    # Apply limit and execute
-    query = query.limit(limit)
-    results = session.exec(query).all()
-    
-    return results
+    return {
+        "songs": songs,
+        "albums": albums,
+        "artists": artists
+    }
 
 # --- ALBUMS ---
 @router.get("/albums", response_model=List[Album])
