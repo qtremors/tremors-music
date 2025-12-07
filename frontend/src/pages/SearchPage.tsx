@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getCoverUrl } from '../lib/api';
 import { usePlayerStore } from '../stores/playerStore';
 import { formatTime, cn } from '../lib/utils';
-import { Music, Search, Disc, User } from 'lucide-react';
+import { Music, Search, Disc, User, Play } from 'lucide-react';
 import api from '../lib/api';
 
 interface SearchResults {
@@ -35,9 +35,11 @@ export function SearchPage() {
   };
 
   const handlePlayAlbum = (album: any) => {
-    // Navigate to album detail page
     navigate(`/album/${album.id}`);
   };
+
+  // Determine top result (best match)
+  const topResult = results?.albums[0] || results?.artists[0] || null;
 
   return (
     <div className="h-full flex flex-col bg-apple-gray">
@@ -57,34 +59,66 @@ export function SearchPage() {
           <div className="p-12 text-center text-apple-subtext">No results found for "{query}"</div>
         ) : (
           <div className="space-y-8">
-            {/* Songs Section */}
+            {/* Top Result */}
+            {topResult && results.albums[0] && (
+              <div>
+                <h3 className="text-lg font-semibold text-apple-text mb-4">Top Result</h3>
+                <div
+                  onClick={() => handlePlayAlbum(results.albums[0])}
+                  className="flex items-center gap-6 p-6 rounded-xl bg-gradient-to-br from-apple-accent/10 to-transparent hover:from-apple-accent/20 cursor-pointer group transition-all border border-apple-accent/20"
+                >
+                  <div className="w-32 h-32 rounded-lg overflow-hidden shadow-xl flex-shrink-0">
+                    <img
+                      src={getCoverUrl(results.albums[0].id)}
+                      alt={results.albums[0].title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-4xl font-bold text-apple-text mb-2 truncate group-hover:text-apple-accent transition">
+                      {results.albums[0].title}
+                    </div>
+                    <div className="text-lg text-apple-subtext mb-3 truncate">{results.albums[0].artist}</div>
+                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-white dark:bg-gray-800 rounded-full text-xs font-medium text-apple-subtext">
+                      <Disc size={14} />
+                      Album
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Songs Section - Grid */}
             {results.songs.length > 0 && (
               <div>
                 <h3 className="text-lg font-semibold text-apple-text mb-4 flex items-center gap-2">
                   <Music size={20} className="text-apple-accent" />
-                  Songs ({results.songs.length})
+                  Songs
                 </h3>
-                <div className="space-y-1">
-                  {results.songs.map((song) => {
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {results.songs.slice(0, 8).map((song) => {
                     const isActive = currentSong?.id === song.id;
                     return (
                       <div
                         key={song.id}
                         className={cn(
-                          "flex items-center px-4 py-2 hover:bg-gray-200/50 dark:hover:bg-white/5 cursor-pointer group rounded-lg transition-colors h-14",
+                          "flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer group transition-all hover:bg-gray-200/50 dark:hover:bg-white/5",
                           isActive && "bg-gray-200 dark:bg-white/10"
                         )}
                         onClick={() => handlePlaySong(song)}
                       >
-                        {/* Art */}
-                        <div className="w-10 h-10 rounded overflow-hidden bg-gray-200 dark:bg-white/10 relative flex-shrink-0 border border-black/5">
+                        {/* Album Art */}
+                        <div className="w-12 h-12 rounded overflow-hidden bg-gray-200 dark:bg-white/10 relative flex-shrink-0 border border-black/5">
                           {song.album_id ? (
                             <img src={getCoverUrl(song.album_id)} className="w-full h-full object-cover" alt="" />
-                          ) : <Music size={14} className="m-auto text-gray-400" />}
+                          ) : <Music size={16} className="m-auto text-gray-400" />}
+                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                            <Play size={16} fill="white" className="text-white" />
+                          </div>
                         </div>
 
                         {/* Info */}
-                        <div className="flex-1 min-w-0 px-4">
+                        <div className="flex-1 min-w-0">
                           <div className={cn("font-medium truncate text-sm", isActive ? "text-apple-accent" : "text-apple-text")}>
                             {song.title}
                           </div>
@@ -99,29 +133,39 @@ export function SearchPage() {
                     );
                   })}
                 </div>
+                {results.songs.length > 8 && (
+                  <div className="text-xs text-apple-subtext mt-3 text-center">
+                    +{results.songs.length - 8} more songs
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Albums Section */}
-            {results.albums.length > 0 && (
+            {/* Albums Section - Grid */}
+            {results.albums.length > 1 && (
               <div>
                 <h3 className="text-lg font-semibold text-apple-text mb-4 flex items-center gap-2">
                   <Disc size={20} className="text-apple-accent" />
-                  Albums ({results.albums.length})
+                  Albums
                 </h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                  {results.albums.map((album) => (
+                  {results.albums.slice(1).map((album) => (
                     <div
                       key={album.id}
                       onClick={() => handlePlayAlbum(album)}
                       className="group cursor-pointer"
                     >
-                      <div className="aspect-square rounded-lg overflow-hidden bg-gray-200 dark:bg-white/10 mb-3 shadow-md group-hover:shadow-xl transition-shadow">
+                      <div className="aspect-square rounded-lg overflow-hidden bg-gray-200 dark:bg-white/10 mb-3 shadow-md group-hover:shadow-xl transition-all relative">
                         <img
                           src={getCoverUrl(album.id)}
                           alt={album.title}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                          <div className="w-12 h-12 rounded-full bg-apple-accent flex items-center justify-center">
+                            <Play size={20} fill="white" className="text-white ml-0.5" />
+                          </div>
+                        </div>
                       </div>
                       <h4 className="font-medium text-sm text-apple-text truncate group-hover:text-apple-accent transition">
                         {album.title}
@@ -133,29 +177,26 @@ export function SearchPage() {
               </div>
             )}
 
-            {/* Artists Section */}
+            {/* Artists Section - Grid */}
             {results.artists.length > 0 && (
               <div>
                 <h3 className="text-lg font-semibold text-apple-text mb-4 flex items-center gap-2">
                   <User size={20} className="text-apple-accent" />
-                  Artists ({results.artists.length})
+                  Artists
                 </h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                   {results.artists.map((artist, idx) => (
                     <div
                       key={idx}
-                      className="px-4 py-3 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-apple-accent dark:hover:border-apple-accent cursor-pointer transition group"
+                      className="flex flex-col items-center p-4 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-apple-accent dark:hover:border-apple-accent cursor-pointer transition group"
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-apple-accent/10 flex items-center justify-center flex-shrink-0">
-                          <User size={18} className="text-apple-accent" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-sm text-apple-text truncate group-hover:text-apple-accent transition">
-                            {artist.name}
-                          </div>
-                        </div>
+                      <div className="w-20 h-20 rounded-full bg-gradient-to-br from-apple-accent/20 to-apple-accent/5 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                        <User size={32} className="text-apple-accent" />
                       </div>
+                      <div className="font-medium text-sm text-apple-text text-center truncate w-full group-hover:text-apple-accent transition">
+                        {artist.name}
+                      </div>
+                      <div className="text-xs text-apple-subtext mt-1">Artist</div>
                     </div>
                   ))}
                 </div>
