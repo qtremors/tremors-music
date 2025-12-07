@@ -16,6 +16,7 @@ export function Player() {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [isQueueOpen, setIsQueueOpen] = useState(false);
 
   // Sync Play/Pause
   useEffect(() => {
@@ -64,7 +65,7 @@ export function Player() {
           loop={repeatMode === 'one'}
           onTimeUpdate={handleTimeUpdate}
           onEnded={() => {
-            // If looping 'one', the audio tag handles it. 
+            // If looping 'one', the audio tag handles it.
             // Otherwise, ask the store for the next song.
             if (repeatMode !== 'one') playNext();
           }}
@@ -136,7 +137,7 @@ export function Player() {
           </div>
         </div>
 
-        {/* RIGHT: Volume */}
+        {/* RIGHT: Volume & Queue */}
         <div className="flex items-center justify-end gap-3 w-1/3">
           <div className="hidden sm:flex items-center gap-2 w-24">
             <Volume2 size={16} className="text-apple-subtext" />
@@ -147,10 +148,18 @@ export function Player() {
               className="w-full h-1 bg-gray-300 dark:bg-white/20 rounded-lg appearance-none cursor-pointer accent-apple-text"
             />
           </div>
+          <button
+            onClick={(e) => { e.stopPropagation(); setIsQueueOpen(true); }}
+            className="p-2 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full transition text-apple-subtext hover:text-apple-text"
+            title="View Queue"
+          >
+            <ListMusic size={20} />
+          </button>
         </div>
       </div>
 
       <FullScreenPlayer isOpen={isFullScreen} onClose={() => setIsFullScreen(false)} />
+      <QueuePanel isOpen={isQueueOpen} onClose={() => setIsQueueOpen(false)} />
     </>
   );
 }
