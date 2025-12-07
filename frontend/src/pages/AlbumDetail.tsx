@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getAlbum, getAlbumSongs, getCoverUrl } from '../lib/api';
 import { usePlayerStore } from '../stores/playerStore';
 import { formatTime, cn } from '../lib/utils';
-import { Play, ArrowLeft, Clock } from 'lucide-react';
+import { Play, ArrowLeft, Clock, Shuffle } from 'lucide-react';
 
 export function AlbumDetail() {
   const { id } = useParams<{ id: string }>();
@@ -25,7 +25,16 @@ export function AlbumDetail() {
   const handlePlayAlbum = () => {
     if (songs && songs.length > 0) {
       setQueue(songs);
+      usePlayerStore.setState({ isShuffle: false });
       playSong(songs[0]);
+    }
+  };
+
+  const handleShuffleAlbum = () => {
+    if (songs && songs.length > 0) {
+      const shuffled = [...songs].sort(() => Math.random() - 0.5);
+      usePlayerStore.setState({ isShuffle: true, queue: shuffled, originalQueue: songs });
+      playSong(shuffled[0]);
     }
   };
 
@@ -36,14 +45,14 @@ export function AlbumDetail() {
       {/* Header / Hero Section */}
       <div className="relative w-full h-80 overflow-hidden flex items-end p-8 group">
         {/* Blurred Background */}
-        <div 
+        <div
           className="absolute inset-0 bg-cover bg-center blur-3xl opacity-50 scale-110 dark:opacity-30"
           style={{ backgroundImage: `url(${getCoverUrl(album.id)})` }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-apple-gray via-transparent to-transparent" />
 
-        <button 
-          onClick={() => navigate(-1)} 
+        <button
+          onClick={() => navigate(-1)}
           className="absolute top-6 left-6 p-2 bg-white/20 backdrop-blur-md rounded-full text-apple-text hover:bg-white/40 transition z-20"
         >
           <ArrowLeft size={20} />
@@ -51,8 +60,8 @@ export function AlbumDetail() {
 
         <div className="relative z-10 flex items-end gap-8 w-full">
           {/* Album Art Shadowed */}
-          <img 
-            src={getCoverUrl(album.id)} 
+          <img
+            src={getCoverUrl(album.id)}
             className="w-48 h-48 rounded-lg shadow-2xl object-cover"
             alt={album.title}
           />
@@ -65,13 +74,21 @@ export function AlbumDetail() {
               <span>{songs?.length} Songs</span>
             </div>
           </div>
-          
-          <button 
-            onClick={handlePlayAlbum}
-            className="w-14 h-14 rounded-full bg-apple-accent text-white flex items-center justify-center shadow-lg hover:scale-105 transition mb-2"
-          >
-            <Play size={28} fill="currentColor" className="ml-1" />
-          </button>
+
+          <div className="flex gap-3 mb-2">
+            <button
+              onClick={handlePlayAlbum}
+              className="w-14 h-14 rounded-full bg-apple-accent text-white flex items-center justify-center shadow-lg hover:scale-105 transition"
+            >
+              <Play size={28} fill="currentColor" className="ml-1" />
+            </button>
+            <button
+              onClick={handleShuffleAlbum}
+              className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-md text-white flex items-center justify-center shadow-lg hover:bg-white/30 transition"
+            >
+              <Shuffle size={24} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -87,7 +104,7 @@ export function AlbumDetail() {
           {songs?.map((song, index) => {
             const isCurrent = currentSong?.id === song.id;
             return (
-              <div 
+              <div
                 key={song.id}
                 onClick={() => {
                   setQueue(songs);
@@ -100,17 +117,17 @@ export function AlbumDetail() {
               >
                 <div className="w-10 text-center text-sm text-apple-subtext font-medium">
                   {isCurrent ? (
-                     <Play size={12} fill="currentColor" className="text-apple-accent mx-auto" />
+                    <Play size={12} fill="currentColor" className="text-apple-accent mx-auto" />
                   ) : (
                     <span className="group-hover:hidden">{index + 1}</span>
                   )}
                   <Play size={12} fill="currentColor" className="hidden group-hover:block mx-auto text-apple-text" />
                 </div>
-                
+
                 <div className={cn("flex-1 font-medium text-sm", isCurrent ? "text-apple-accent" : "text-apple-text")}>
                   {song.title}
                 </div>
-                
+
                 <div className="w-20 text-right text-sm text-apple-subtext font-variant-numeric tabular-nums">
                   {formatTime(song.duration)}
                 </div>

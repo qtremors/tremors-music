@@ -4,6 +4,7 @@ from sqlmodel import Session, select
 from mutagen import File as MutagenFile
 from database import engine
 from models import Song, Album
+from scanner_progress import scanner_progress
 
 AUDIO_EXTENSIONS = {'.mp3', '.flac', '.m4a', '.wav', '.ogg', '.wma', '.aac', '.alac'}
 
@@ -39,6 +40,9 @@ def clean_string(value):
 def scan_directory(root_directory: str):
     if not os.path.exists(root_directory): return
 
+    # Reset and start progress tracking
+    scanner_progress.reset()
+
     with Session(engine) as session:
         existing_paths = set(session.exec(select(Song.path)).all())
         existing_albums = session.exec(select(Album)).all()
@@ -50,11 +54,16 @@ def scan_directory(root_directory: str):
                 ext = os.path.splitext(file)[1].lower()
                 if ext in AUDIO_EXTENSIONS:
                     full_path = os.path.join(root, file)
+                    
+                    # Update current file being processed
+                    scanner_progress.update(files=1, current=file)
+                    
                     if full_path in existing_paths: continue
 
                     try:
                         audio = MutagenFile(full_path, easy=True)
                         if audio is None:
+                            scanner_progress.update(errors=1)
                             continue
                         
                         # --- BASIC INFORMATION ---
@@ -199,15 +208,18 @@ def scan_directory(root_directory: str):
                         )
                         session.add(song)
                         new_songs_count += 1
+                        scanner_progress.update(songs=1)  # Track song added
                         
                         if new_songs_count % 50 == 0:
                             session.commit()
                             
                     except Exception as e:
                         # Silently skip corrupted or unsupported files
+                        scanner_progress.update(errors=1)
                         pass
 
         session.commit()
+        scanner_progress.finish()  # Mark scanning as complete
         
         # Cleanup Empty Albums
         all_albums = session.exec(select(Album)).all()
@@ -215,3 +227,4 @@ def scan_directory(root_directory: str):
             if not session.exec(select(Song).where(Song.album_id == alb.id)).first():
                 session.delete(alb)
         session.commit()
+        print(f"Scan complete: {new_songs_count} new songs added")

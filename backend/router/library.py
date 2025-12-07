@@ -46,9 +46,22 @@ def reset_library(session: Session = Depends(get_session)):
 def scan_library(background_tasks: BackgroundTasks, session: Session = Depends(get_session)):
     paths = session.exec(select(LibraryPath)).all()
     if not paths: raise HTTPException(status_code=400, detail="No paths configured.")
+    
+    # Import here to avoid circular dependency
+    from scanner_progress import scanner_progress
+    
+    # Reset progress before starting
+    scanner_progress.reset()
+    
     for p in paths:
         background_tasks.add_task(scan_directory, os.path.normpath(p.path))
     return {"message": "Scanning started"}
+
+@router.get("/scan/status")
+def get_scan_status():
+    """Get real-time scanner progress"""
+    from scanner_progress import scanner_progress
+    return scanner_progress.to_dict()
 
 # --- ARTISTS ---
 @router.get("/artists")
