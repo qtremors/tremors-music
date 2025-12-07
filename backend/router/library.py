@@ -33,6 +33,22 @@ def remove_path(path_id: int, session: Session = Depends(get_session)):
     session.commit()
     return {"message": "Path removed"}
 
+@router.patch("/paths/{path_id}")
+def update_library_path(path_id: int, new_path: str, session: Session = Depends(get_session)):
+    """Update an existing library path."""
+    path_obj = session.get(LibraryPath, path_id)
+    if not path_obj:
+        raise HTTPException(status_code=404, detail="Path not found")
+    if not os.path.exists(new_path):
+        raise HTTPException(status_code=400, detail="Directory does not exist")
+    existing = session.exec(select(LibraryPath).where(LibraryPath.path == new_path)).first()
+    if existing and existing.id != path_id:
+        raise HTTPException(status_code=400, detail="Path already exists in library")
+    path_obj.path = new_path
+    session.commit()
+    session.refresh(path_obj)
+    return path_obj
+
 # --- LIBRARY MANAGEMENT ---
 @router.delete("/reset")
 def reset_library(session: Session = Depends(get_session)):
@@ -62,6 +78,15 @@ def get_scan_status():
     """Get real-time scanner progress"""
     from scanner_progress import scanner_progress
     return scanner_progress.to_dict()
+
+@router.post("/scan/stop")
+def stop_scan():
+    """Stop the currently running scan."""
+    from scanner_progress import scanner_progress
+    if not scanner_progress.is_scanning:
+        raise HTTPException(status_code=400, detail="No scan is currently running")
+    scanner_progress.finish()
+    return {"message": "Scan stopped"}
 
 # --- ARTISTS ---
 @router.get("/artists")

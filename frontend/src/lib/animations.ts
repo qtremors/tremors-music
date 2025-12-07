@@ -9,7 +9,7 @@ export const pageVariants = {
         y: 0,
         transition: {
             duration: 0.3,
-            ease: 'easeOut',
+            ease: [0.4, 0, 0.2, 1] as const, // easeOut
         },
     },
     exit: {
@@ -17,7 +17,7 @@ export const pageVariants = {
         y: -20,
         transition: {
             duration: 0.2,
-            ease: 'easeIn',
+            ease: [0.4, 0, 1, 1] as const, // easeIn
         },
     },
 };
@@ -47,7 +47,7 @@ export const scaleOnHover = {
         scale: 1.05,
         transition: {
             duration: 0.2,
-            ease: 'easeOut',
+            ease: [0.4, 0, 0.2, 1] as const,
         },
     },
 };
@@ -70,14 +70,14 @@ export const slideUp = {
         y: 0,
         transition: {
             duration: 0.3,
-            ease: [0.4, 0, 0.2, 1],
+            ease: [0.4, 0, 0.2, 1] as const,
         },
     },
     exit: {
         y: '100%',
         transition: {
             duration: 0.2,
-            ease: [0.4, 0, 1, 1],
+            ease: [0.4, 0, 1, 1] as const,
         },
     },
 };
@@ -88,14 +88,14 @@ export const slideInFromRight = {
         x: 0,
         transition: {
             duration: 0.3,
-            ease: [0.4, 0, 0.2, 1],
+            ease: [0.4, 0, 0.2, 1] as const,
         },
     },
     exit: {
         x: '100%',
         transition: {
             duration: 0.2,
-            ease: [0.4, 0, 1, 1],
+            ease: [0.4, 0, 1, 1] as const,
         },
     },
 };
