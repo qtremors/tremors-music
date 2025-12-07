@@ -243,7 +243,7 @@ export function SearchPage() {
                           {song.title}
                         </div>
                         <div className="text-xs text-apple-subtext truncate">
-                          {song.artist} • {song.album_title}
+                          {song.artist}
                         </div>
                       </div>
                       <div className="text-xs text-apple-subtext tabular-nums ml-4">
