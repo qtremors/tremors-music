@@ -219,7 +219,7 @@ export function ArtistsPage() {
   );
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col bg-apple-gray">
       <header className="h-16 flex items-center justify-between px-8 border-b border-gray-200 dark:border-white/10 bg-apple-gray/95 backdrop-blur z-10">
         <h2 className="text-xl font-semibold text-apple-text">Artists</h2>
 

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Response
 from sqlmodel import Session, select
-from database import get_session
+from database import get_session, get_app_dir
 from models import Album, Song
 from mutagen import File as MutagenFile
 from mutagen.id3 import ID3, APIC
@@ -9,14 +9,26 @@ from mutagen.mp4 import MP4
 import os
 import requests
 import base64
+import io
+from PIL import Image
 
 router = APIRouter(tags=["Media"])
 
 # 1x1 Transparent PNG pixel
 DEFAULT_COVER = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=")
 
+# Define cache directory
+COVERS_DIR = os.path.join(get_app_dir(), "covers")
+os.makedirs(COVERS_DIR, exist_ok=True)
+
 @router.get("/covers/{album_id}")
 def get_album_cover(album_id: int, session: Session = Depends(get_session)):
+    # 1. Check Cache
+    cache_path = os.path.join(COVERS_DIR, f"{album_id}.jpg")
+    if os.path.exists(cache_path):
+        with open(cache_path, "rb") as f:
+            return Response(content=f.read(), media_type="image/jpeg")
+
     album = session.get(Album, album_id)
     if not album: 
         return Response(content=DEFAULT_COVER, media_type="image/png")
@@ -24,14 +36,14 @@ def get_album_cover(album_id: int, session: Session = Depends(get_session)):
     # Check first 3 songs for art
     songs = session.exec(select(Song).where(Song.album_id == album_id).limit(3)).all()
     
+    image_data = None
+    
     for song in songs:
         if not os.path.exists(song.path): continue
         try:
             audio = MutagenFile(song.path)
             if audio is None:
                 continue
-            
-            image_data = None
             
             # MP3 with ID3 tags
             if isinstance(audio, ID3) or hasattr(audio, 'tags') and isinstance(audio.tags, ID3):
@@ -49,9 +61,32 @@ def get_album_cover(album_id: int, session: Session = Depends(get_session)):
                 image_data = bytes(audio.tags['covr'][0])
             
             if image_data:
-                return Response(content=image_data, media_type="image/jpeg")
+                break # Found art
         except:
             continue
+
+    if image_data:
+        try:
+            # Resize and Save Cache
+            img = Image.open(io.BytesIO(image_data))
+            
+            # Convert to RGB (in case of PNG/RGBA)
+            if img.mode in ('RGBA', 'P'): 
+                img = img.convert('RGB')
+            
+            # Resize (Lanczos is high quality)
+            img.thumbnail((300, 300), Image.Resampling.LANCZOS)
+            
+            # Save to buffer and file
+            out_io = io.BytesIO()
+            img.save(out_io, format='JPEG', quality=80)
+            img.save(cache_path, format='JPEG', quality=80)
+            
+            return Response(content=out_io.getvalue(), media_type="image/jpeg")
+        except Exception as e:
+            print(f"Error processing image for album {album_id}: {e}")
+            # Fallback to original data if resize fails
+            return Response(content=image_data, media_type="image/jpeg")
 
     # Return silent placeholder instead of 404 to fix console warnings
     return Response(content=DEFAULT_COVER, media_type="image/png")

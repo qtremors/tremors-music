@@ -2,6 +2,25 @@
 
 All notable changes to Tremors Music are documented in this file.
 
+## [0.9.4] - 2024-12-08
+
+### Changed
+- **Reverted Virtualization**: Removed `react-virtuoso` grid virtualization as it was causing blank pages on some systems.
+- **Optimization Strategy**: The app now relies entirely on the robust backend **Thumbnail Caching** (implemented in v0.9.2) to maintain low RAM usage and high performance, without the complexity/instability of frontend virtualization.
+
+---
+
+## [0.9.2] - 2024-12-08
+
+### Performance
+- **Thumbnail Caching**: Implemented a local file cache for album art. Images are now resized to 300x300 thumbnails on first load and served from disk, reducing memory usage by ~90%.
+- **Grid Virtualization**: Switched `Albums` and `Artists` pages to use virtual scrolling (`react-virtuoso`). This fixes the O(N) memory leak by only rendering visible items.
+
+### Fixed
+- **High RAM Usage**: Resolved an issue where WebView2 would consume 1GB+ RAM on large libraries due to rendering all album covers simultaneously.
+
+---
+
 ## [0.9.1] - 2024-12-08
 
 ### Added
