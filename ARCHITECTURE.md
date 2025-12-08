@@ -22,21 +22,21 @@ TOTAL                          86         1068          393        12864
 
 
 ```
-tremors-music/                                                                                
+tremors-music/
+├── assets/
+│   ├── tremorsmusic.png
+│   └── tremorsmusic.svg
 ├── backend/
-│   ├── backend/
-│   │   └── .art/
-│   │       └── 35.jpg
 │   ├── router/
 │   │   ├── library.py
 │   │   ├── media.py
 │   │   ├── playlists.py
 │   │   └── stream.py
-│   ├── .art
 │   ├── backend.spec
 │   ├── backend_build.py
 │   ├── database.py
 │   ├── main.py
+│   ├── migrate_db.py
 │   ├── models.py
 │   ├── pyproject.toml
 │   ├── scanner.py
@@ -105,7 +105,6 @@ tremors-music/
 │   │   ├── index.css
 │   │   ├── main.tsx
 │   │   └── types.ts
-│   ├── eslint-report.json
 │   ├── eslint.config.js
 │   ├── index.html
 │   ├── package-lock.json
@@ -203,7 +202,5 @@ tremors-music/
 ├── package-lock.json
 ├── package.json
 ├── PRIVACY.md
-├── README.md
-├── tremorsmusic.png
-└── tremorsmusic.svg
+└── README.md
 ```
