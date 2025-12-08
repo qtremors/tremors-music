@@ -47,7 +47,7 @@ export const getAlbumSongs = async (id: number) => {
 };
 
 export const getCoverUrl = (albumId: number) => {
-  return `${API_BASE}/covers/${albumId}`;
+  return `${API_BASE}/covers/${albumId}?v=2`;
 };
 
 // --- ARTISTS ---

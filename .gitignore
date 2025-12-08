@@ -29,6 +29,11 @@ backend/build/
 logs/
 *.log
 
+# Artwork cache
+.art/
+backend/.art/
+backend/backend/
+
 # --- Frontend (Node/JS) ---
 # Dependencies
 node_modules/
@@ -42,6 +47,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# ESLint reports
+eslint-report.json
+
 # --- Tauri ---
 src-tauri/target/
 src-tauri/binaries/*.exe
@@ -49,12 +57,14 @@ src-tauri/binaries/*.exe
 # --- Test Data ---
 music_test/
 
+# --- Temp Files ---
+*_output.txt
+
 # --- IDE ---
 .idea/
 .vscode/
 *.swp
 *.swo
-
 
 # --- Documentation ---
 agents.md

@@ -67,7 +67,7 @@ def get_album_cover(album_id: int, session: Session = Depends(get_session)):
 
     if image_data:
         try:
-            # Resize and Save Cache
+            # Resize Logic
             img = Image.open(io.BytesIO(image_data))
             
             # Convert to RGB (in case of PNG/RGBA)
@@ -77,15 +77,26 @@ def get_album_cover(album_id: int, session: Session = Depends(get_session)):
             # Resize (Lanczos is high quality)
             img.thumbnail((300, 300), Image.Resampling.LANCZOS)
             
-            # Save to buffer and file
+            # Save to buffer for serving
             out_io = io.BytesIO()
             img.save(out_io, format='JPEG', quality=80)
-            img.save(cache_path, format='JPEG', quality=80)
+            resized_bytes = out_io.getvalue()
             
-            return Response(content=out_io.getvalue(), media_type="image/jpeg")
+            # Try to cache to disk (Best Effort)
+            try:
+                with open(cache_path, "wb") as f:
+                    f.write(resized_bytes)
+            except Exception as e:
+                # Log error but don't fail the request
+                # Use standard print as we don't have the logger object imported here yet
+                # Ideally should verify if we can write to this dir
+                print(f"[WARNING] Failed to write cache for album {album_id}: {e}")
+            
+            return Response(content=resized_bytes, media_type="image/jpeg")
+            
         except Exception as e:
-            print(f"Error processing image for album {album_id}: {e}")
-            # Fallback to original data if resize fails
+            print(f"[ERROR] Error processing image for album {album_id}: {e}")
+            # Fallback to original data if resize fails (e.g. corrupted image)
             return Response(content=image_data, media_type="image/jpeg")
 
     # Return silent placeholder instead of 404 to fix console warnings

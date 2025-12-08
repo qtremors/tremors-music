@@ -1,7 +1,7 @@
 # Tremors Music 🎵
 
 <p align="center">
-  <img src="tremorsmusic.png" alt="Tremors Music Logo" width="128" height="128">
+  <img src="assets/tremorsmusic.png" alt="Tremors Music Logo" width="128" height="128">
 </p>
 
 <p align="center">
@@ -228,12 +228,15 @@ If you want to preserve your library before uninstalling:
 - [ ] macOS and Linux builds
 - [ ] Discord Rich Presence
 
-### Recently Completed
-- [x] **Online & Synced Lyrics** (with caching)
+### Included in 1.0.0 Beta
+- [x] Full music playback with queue management
+- [x] Library scanning with metadata extraction
+- [x] Smart & custom playlists
+- [x] Synced lyrics support
+- [x] Thumbnail caching for performance
+- [x] Dark/Light mode with accent colors
 - [x] Fisher-Yates shuffle algorithm
-- [x] Queue management improvements
 - [x] File-based logging
-- [x] Production branding
 
 ---
 
