@@ -20,6 +20,7 @@ import { ConfirmDialog } from './components/ConfirmDialog';
 import { CreatePlaylistModal } from './components/CreatePlaylistModal';
 import { getPlaylists } from './lib/api';
 import { cn } from './lib/utils';
+import { usePlayerStore } from './stores/playerStore'; // Import Store
 import {
   Library, Settings, Disc, Mic2, Music, Tag,
   PlusCircle, ListMusic, Search, Heart, Sparkles, TrendingUp
@@ -157,6 +158,11 @@ function AppContent() {
       searchInput?.focus();
     }
   });
+
+  // Validate player state on mount (handle stale localStorage data)
+  useEffect(() => {
+    usePlayerStore.getState().validateState();
+  }, []);
 
   return (
     <div className="min-h-screen flex flex-col bg-apple-gray transition-colors duration-300 text-apple-text font-sans selection:bg-apple-accent/30">

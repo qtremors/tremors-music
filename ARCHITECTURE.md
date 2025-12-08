@@ -4,24 +4,25 @@
 ========================================================================
 Language                    Files        Blank      Comment         Code
 ------------------------------------------------------------------------
-JSON                           10            5            0         5047
-TypeScript TSX                 36          518           87         4886
-Python                         10          177          140          908
-TypeScript                     11          129           80          750
-Markdown                        3          108            0          328
+JSON                           10            2            0         5066
+TypeScript TSX                 36          521           90         4919
+Python                         11          182          153          927
+TypeScript                     11          131           84          761
+Markdown                        5          174            0          662
+Rust                            3            5            3           52
 JavaScript                      3            1            1           51
-TOML                            2            4            1           37
+TOML                            2            5            1           41
 CSS                             1            6            2           28
-Rust                            3            3            2           28
 HTML                            1            0            0           13
+XML                             2            0            0            9
 ------------------------------------------------------------------------
-TOTAL                          80          951          313        12076
+TOTAL                          85         1027          334        12529
 ========================================================================
 ```
 
 
 ```
-tremors-music/
+tremors-music/                                                                                
 ├── backend/
 │   ├── backend/
 │   │   └── .art/
@@ -32,6 +33,8 @@ tremors-music/
 │   │   ├── playlists.py
 │   │   └── stream.py
 │   ├── .art
+│   ├── backend.spec
+│   ├── backend_build.py
 │   ├── database.py
 │   ├── main.py
 │   ├── models.py
@@ -113,13 +116,60 @@ tremors-music/
 │   ├── tsconfig.json
 │   ├── tsconfig.node.json
 │   └── vite.config.ts
+├── scripts/
+│   └── build-backend.mjs
 ├── src-tauri/
 │   ├── capabilities/
 │   │   └── default.json
 │   ├── icons/
+│   │   ├── android/
+│   │   │   ├── mipmap-anydpi-v26/
+│   │   │   │   └── ic_launcher.xml
+│   │   │   ├── mipmap-hdpi/
+│   │   │   │   ├── ic_launcher.png
+│   │   │   │   ├── ic_launcher_foreground.png
+│   │   │   │   └── ic_launcher_round.png
+│   │   │   ├── mipmap-mdpi/
+│   │   │   │   ├── ic_launcher.png
+│   │   │   │   ├── ic_launcher_foreground.png
+│   │   │   │   └── ic_launcher_round.png
+│   │   │   ├── mipmap-xhdpi/
+│   │   │   │   ├── ic_launcher.png
+│   │   │   │   ├── ic_launcher_foreground.png
+│   │   │   │   └── ic_launcher_round.png
+│   │   │   ├── mipmap-xxhdpi/
+│   │   │   │   ├── ic_launcher.png
+│   │   │   │   ├── ic_launcher_foreground.png
+│   │   │   │   └── ic_launcher_round.png
+│   │   │   ├── mipmap-xxxhdpi/
+│   │   │   │   ├── ic_launcher.png
+│   │   │   │   ├── ic_launcher_foreground.png
+│   │   │   │   └── ic_launcher_round.png
+│   │   │   └── values/
+│   │   │       └── ic_launcher_background.xml
+│   │   ├── ios/
+│   │   │   ├── AppIcon-20x20@1x.png
+│   │   │   ├── AppIcon-20x20@2x-1.png
+│   │   │   ├── AppIcon-20x20@2x.png
+│   │   │   ├── AppIcon-20x20@3x.png
+│   │   │   ├── AppIcon-29x29@1x.png
+│   │   │   ├── AppIcon-29x29@2x-1.png
+│   │   │   ├── AppIcon-29x29@2x.png
+│   │   │   ├── AppIcon-29x29@3x.png
+│   │   │   ├── AppIcon-40x40@1x.png
+│   │   │   ├── AppIcon-40x40@2x-1.png
+│   │   │   ├── AppIcon-40x40@2x.png
+│   │   │   ├── AppIcon-40x40@3x.png
+│   │   │   ├── AppIcon-512@2x.png
+│   │   │   ├── AppIcon-60x60@2x.png
+│   │   │   ├── AppIcon-60x60@3x.png
+│   │   │   ├── AppIcon-76x76@1x.png
+│   │   │   ├── AppIcon-76x76@2x.png
+│   │   │   └── AppIcon-83.5x83.5@2x.png
 │   │   ├── 128x128.png
 │   │   ├── 128x128@2x.png
 │   │   ├── 32x32.png
+│   │   ├── 64x64.png
 │   │   ├── icon.icns
 │   │   ├── icon.ico
 │   │   ├── icon.png
@@ -139,14 +189,21 @@ tremors-music/
 │   ├── .gitignore
 │   ├── binaries
 │   ├── build.rs
+│   ├── Cargo.lock
 │   ├── Cargo.toml
+│   ├── gen
 │   └── tauri.conf.json
 ├── .git/
 ├── .gitattributes
 ├── .gitignore
 ├── ARCHITECTURE.md
 ├── CHANGELOG.md
+├── CONTRIBUTING.md
+├── LICENSE
 ├── package-lock.json
 ├── package.json
-└── README.md
+├── PRIVACY.md
+├── README.md
+├── tremorsmusic.png
+└── tremorsmusic.svg
 ```

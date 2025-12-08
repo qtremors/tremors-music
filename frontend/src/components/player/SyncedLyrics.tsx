@@ -68,7 +68,7 @@ export function SyncedLyrics({ lyrics, currentTime, className }: SyncedLyricsPro
     }, [currentTime, parsedLines]);
 
     // Auto-scroll to current line
-    useEffect(() => {
+    const scrollToCurrentFn = () => {
         if (activeLineRef.current && containerRef.current) {
             const container = containerRef.current;
             const activeLine = activeLineRef.current;
@@ -85,7 +85,23 @@ export function SyncedLyrics({ lyrics, currentTime, className }: SyncedLyricsPro
                 behavior: 'smooth'
             });
         }
+    };
+
+    useEffect(() => {
+        scrollToCurrentFn();
     }, [currentLineIndex]);
+
+    // Handle resize (e.g. window resize or panel opening)
+    useEffect(() => {
+        if (!containerRef.current) return;
+
+        const resizeObserver = new ResizeObserver(() => {
+            scrollToCurrentFn();
+        });
+
+        resizeObserver.observe(containerRef.current);
+        return () => resizeObserver.disconnect();
+    }, [currentLineIndex]); // Re-bind if index changes (optional, but safe)
 
     if (parsedLines.length === 0) {
         return (

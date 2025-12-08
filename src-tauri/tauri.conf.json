@@ -38,6 +38,14 @@
     ],
     "externalBin": [
       "binaries/tremorsmusic"
-    ]
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "installerIcon": "icons/icon.ico",
+        "headerImage": "icons/icon.ico",
+        "displayLanguageSelector": false
+      }
+    }
   }
 }

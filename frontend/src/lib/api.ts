@@ -3,7 +3,9 @@ import { Song, Album } from '../types';
 
 // In development, Vite proxies /api to the backend.
 // In production (Tauri build), we need the full backend URL.
-const API_BASE = import.meta.env.DEV ? '/api' : 'http://127.0.0.1:8000';
+// We allow configuration via VITE_API_PORT for custom builds.
+const PORT = import.meta.env.VITE_API_PORT || '8000';
+const API_BASE = import.meta.env.DEV ? '/api' : `http://127.0.0.1:${PORT}`;
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -15,6 +17,11 @@ export const getSongs = async (offset = 0, limit = 5000, sortBy = 'title', order
     params: { offset, limit, sort_by: sortBy, order }
   });
   return Array.isArray(response.data) ? response.data : [];
+};
+
+export const getSong = async (id: number) => {
+  const response = await api.get<Song>(`/library/songs/${id}`);
+  return response.data;
 };
 
 export const searchLibrary = async (query: string) => {
@@ -125,6 +132,14 @@ export const createPlaylist = async (name: string) => {
 
 export const addToPlaylist = async (playlistId: number, songIds: number[]) => {
   await api.post(`/playlists/${playlistId}/add`, { song_ids: songIds });
+};
+
+export const removeSongFromPlaylist = async (playlistId: number, songId: number) => {
+  await api.delete(`/playlists/${playlistId}/songs/${songId}`);
+};
+
+export const reorderPlaylist = async (playlistId: number, songIds: number[]) => {
+  await api.post(`/playlists/${playlistId}/reorder`, { song_ids: songIds });
 };
 
 export const getPlaylistSongs = async (id: string) => {

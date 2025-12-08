@@ -79,6 +79,7 @@ class Song(SQLModel, table=True):
     # --- CONTENT & DESCRIPTION ---
     has_lyrics: bool = Field(default=False)
     lyrics: Optional[str] = None  # Full lyrics text
+    synced_lyrics: Optional[str] = None  # JSON/LRC formatted time-synced lyrics
     comment: Optional[str] = None
     description: Optional[str] = None
     language: Optional[str] = None  # ISO 639-2 code

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { Song } from '../types';
+import { getSong } from '../lib/api';
 
 type RepeatMode = 'off' | 'all' | 'one';
 
@@ -27,6 +28,7 @@ interface PlayerState {
   removeFromQueue: (index: number) => void;
   addToQueue: (song: Song) => void;
   clearQueue: () => void;
+  validateState: () => Promise<void>;
 }
 
 export const usePlayerStore = create<PlayerState>()(
@@ -157,6 +159,25 @@ export const usePlayerStore = create<PlayerState>()(
 
       clearQueue: () => {
         set({ queue: [], originalQueue: [], currentIndex: -1, currentSong: null, isPlaying: false });
+      },
+
+      validateState: async () => {
+        const { currentSong } = get();
+        if (!currentSong) return;
+
+        try {
+          // Check if the current song still exists in the backend
+          await getSong(currentSong.id);
+        } catch (error) {
+          console.warn('Current song not found in backend (likely db reset). Clearing player state.');
+          set({
+            queue: [],
+            originalQueue: [],
+            currentIndex: -1,
+            currentSong: null,
+            isPlaying: false
+          });
+        }
       },
     }),
     {

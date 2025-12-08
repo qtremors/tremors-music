@@ -1,6 +1,7 @@
 from typing import List, Dict, Any
 from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException
-from sqlmodel import Session, select, func, or_, delete
+from sqlmodel import Session, select, func, or_, delete, col
+from sqlalchemy import case
 from database import get_session
 from models import Song, Album, LibraryPath
 from scanner import scan_directory
@@ -52,12 +53,38 @@ def update_library_path(path_id: int, new_path: str, session: Session = Depends(
 
 # --- LIBRARY MANAGEMENT ---
 @router.delete("/reset")
-def reset_library(session: Session = Depends(get_session)):
-    """Wipes Songs and Albums but KEEPS Paths."""
-    session.exec(delete(Song))
-    session.exec(delete(Album))
-    session.commit()
-    return {"message": "Library reset (Paths saved)"}
+def reset_library(
+    background_tasks: BackgroundTasks,
+    hard: bool = False,
+    session: Session = Depends(get_session)
+):
+    """
+    Reset or Rescan the library.
+    - Default (hard=False): Performs a "Soft Reset" (Rescan & Prune). 
+      This updates existing files, adds new ones, and removes missing ones, 
+      while PRESERVING play counts, ratings, and date_added for existing files.
+    - hard=True: Wipes all Songs and Albums from the database. Destructive.
+    """
+    if hard:
+        session.exec(delete(Song))
+        session.exec(delete(Album))
+        session.commit()
+        return {"message": "Library WIPED (Hard Reset). Paths saved."}
+    else:
+        # Perform Smart Rescan (Sync)
+        paths = session.exec(select(LibraryPath)).all()
+        if not paths:
+            return {"message": "No paths to scan."}
+        
+        # Reset progress tracker
+        from scanner_progress import scanner_progress
+        scanner_progress.reset()
+        
+        for p in paths:
+            # Re-use the smart scan_directory logic which now handles pruning
+            background_tasks.add_task(scan_directory, os.path.normpath(p.path))
+            
+        return {"message": "Smart Rescan started (Sync & Prune). Use ?hard=true to completely wipe."}
 
 @router.post("/scan")
 def scan_library(background_tasks: BackgroundTasks, session: Session = Depends(get_session)):
@@ -236,32 +263,29 @@ def toggle_favorite(song_id: int, session: Session = Depends(get_session)):
     if not song:
         raise HTTPException(status_code=404, detail="Song not found")
     # Toggle: if rated 5, set to 0; otherwise set to 5
-    song.rating = 0 if song.rating == 5 else 5
+    if song.rating == 5:
+        song.rating = 0
+    else:
+        song.rating = 5
+    session.add(song)
     session.commit()
-    return {"rating": song.rating, "is_favorite": song.rating == 5}
+    return {"rating": song.rating}
 
 
-# --- SONGS & SORTING ---
 @router.get("/songs", response_model=List[Song])
 def get_songs(
     offset: int = 0, 
     limit: int = 5000, 
-    sort_by: str = "title", 
-    order: str = "asc", 
+    sort_by: str = "title",
+    order: str = "asc",
     session: Session = Depends(get_session)
 ):
     query = select(Song)
     
-    # Case-insensitive sorting logic
-    if sort_by == "title":
-        sort_col = func.lower(Song.title)
-    elif sort_by == "artist":
+    if sort_by == "artist":
         sort_col = func.lower(Song.artist)
     elif sort_by == "album":
-        query = query.join(Album, isouter=True)
-        sort_col = func.lower(Album.title)
-    elif sort_by == "duration":
-        sort_col = Song.duration
+        sort_col = func.lower(Song.album_id) # sort by Album ID effectively groups albums
     elif sort_by == "year":
         sort_col = Song.year
     elif sort_by == "file_size":
@@ -278,173 +302,135 @@ def get_songs(
 
     return session.exec(query.offset(offset).limit(limit)).all()
 
+@router.get("/songs/{song_id}", response_model=Song)
+def get_song(song_id: int, session: Session = Depends(get_session)):
+    song = session.get(Song, song_id)
+    if not song: raise HTTPException(404, "Song not found")
+    return song
+
 # --- SEARCH ---
 @router.get("/search", response_model=Dict[str, Any])
 def search_library(q: str = "", limit: int = 50, session: Session = Depends(get_session)):
     """
-    Smart search across songs, albums, and artists with relevance scoring.
-    Works like a real music player search - prioritizes direct title matches.
-    
-    Scoring logic (higher is better):
-    - Exact title/name match: 1000 points
-    - Title/name starts with query: 500 points  
-    - Title/name contains query: 200 points
-    - Artist field matches: 50 points (secondary)
-    
-    Key principle: Songs are only matched by their OWN title/artist, not by album.
+    Optimized smart search using SQL-side sorting (CASE statements).
+    Prioritizes:
+    1. Exact Title Matches
+    2. Title Starts With
+    3. Title Contains
+    4. Artist Matches
     """
     if not q:
         return {"songs": [], "albums": [], "artists": [], "bestMatchType": None}
     
     q_lower = q.lower().strip()
     search_term = f"%{q}%"
-    
-    def score_text(value: str, multiplier: int = 1) -> int:
-        """Calculate relevance score for text matching."""
-        if not value:
-            return 0
-        val_lower = value.lower()
-        if val_lower == q_lower:
-            return 1000 * multiplier  # Exact match
-        elif val_lower.startswith(q_lower):
-            return 500 * multiplier  # Starts with
-        elif q_lower in val_lower:
-            return 200 * multiplier  # Contains
-        return 0
+    start_term = f"{q}%"
     
     # === SONGS ===
-    # Only match songs by their OWN title or artist - NOT by album title
-    songs_query = session.exec(
-        select(Song).where(
+    # SQL Scoring: Title Exact (3) > Title Starts (2) > Title Contains (1) > Artist Match (0.5 for sort order)
+    # We use order_by with a CASE expression
+    song_score = case(
+        (func.lower(Song.title) == q_lower, 30),
+        (Song.title.ilike(start_term), 20),
+        (Song.title.ilike(search_term), 10),
+        else_=0
+    ) + case(
+        (func.lower(Song.artist) == q_lower, 5),
+        (Song.artist.ilike(start_term), 3),
+        (Song.artist.ilike(search_term), 1),
+        else_=0
+    )
+    
+    songs = session.exec(
+        select(Song)
+        .where(
             or_(
                 Song.title.ilike(search_term),
                 Song.artist.ilike(search_term)
             )
-        ).limit(limit)
+        )
+        .order_by(song_score.desc())
+        .limit(limit)
     ).all()
     
-    # Score songs: title match is primary, artist is secondary
-    scored_songs = []
-    for song in songs_query:
-        title_score = score_text(song.title, multiplier=2)  # Title weighted 2x
-        artist_score = score_text(song.artist, multiplier=1)
-        
-        # Use title score as primary, add small artist bonus
-        if title_score > 0:
-            total_score = title_score + (artist_score // 10)  # Small bonus for artist match
-        else:
-            total_score = artist_score  # Only artist matched
-        
-        scored_songs.append((song, total_score, title_score > 0))  # Track if title matched
-    
-    # Sort: first by whether title matched, then by score
-    scored_songs.sort(key=lambda x: (x[2], x[1]), reverse=True)
-    songs = [s[0] for s in scored_songs]
-    best_song_score = scored_songs[0][1] if scored_songs else 0
-    best_song_title_match = scored_songs[0][2] if scored_songs else False
-    
     # === ALBUMS ===
-    albums_query = session.exec(
-        select(Album).where(
+    album_score = case(
+        (func.lower(Album.title) == q_lower, 30),
+        (Album.title.ilike(start_term), 20),
+        (Album.title.ilike(search_term), 10),
+        else_=0
+    ) + case(
+        (func.lower(Album.artist) == q_lower, 5),
+        (Album.artist.ilike(start_term), 3),
+        (Album.artist.ilike(search_term), 1),
+        else_=0
+    )
+    
+    albums = session.exec(
+        select(Album)
+        .where(
             or_(
                 Album.title.ilike(search_term),
                 Album.artist.ilike(search_term)
             )
-        ).limit(20)
+        )
+        .order_by(album_score.desc())
+        .limit(20)
     ).all()
-    
-    scored_albums = []
-    for album in albums_query:
-        title_score = score_text(album.title, multiplier=2)
-        artist_score = score_text(album.artist, multiplier=1)
-        
-        if title_score > 0:
-            total_score = title_score + (artist_score // 10)
-        else:
-            total_score = artist_score
-        
-        scored_albums.append((album, total_score, title_score > 0))
-    
-    scored_albums.sort(key=lambda x: (x[2], x[1]), reverse=True)
-    albums = [a[0] for a in scored_albums]
-    best_album_score = scored_albums[0][1] if scored_albums else 0
-    best_album_title_match = scored_albums[0][2] if scored_albums else False
     
     # === ARTISTS ===
-    # Split combined artist names into individual artists
-    def split_artists(artist_str: str) -> list:
-        """Split combined artist names by common separators."""
-        if not artist_str:
-            return []
-        # Common separators: comma, &, feat., ft., featuring, and, with
-        # Split by common separators
-        parts = re.split(r'\s*[,&]\s*|\s+feat\.?\s+|\s+ft\.?\s+|\s+featuring\s+|\s+and\s+|\s+with\s+', artist_str, flags=re.IGNORECASE)
-        return [p.strip() for p in parts if p.strip()]
+    # For artists, we just search distinct names.
+    # Note: Optimization only applies to database rows. Parsing combined artists string happens in Python.
+    # For a truly optimized "Artist" search, we'd need a separate Artists table or FTS.
+    # For now, we fetch matches and score locally because 'split_artists' logic is complex to do in SQL.
     
-    song_artists = session.exec(
-        select(Song.artist).where(
-            Song.artist.ilike(search_term)
-        ).distinct()
+    raw_artist_matches = session.exec(
+        select(Song.artist).where(Song.artist.ilike(search_term)).distinct()
     ).all()
     
-    album_artists = session.exec(
-        select(Album.artist).where(
-            Album.artist.ilike(search_term)
-        ).distinct()
-    ).all()
-    
-    # Collect and split all artist names
-    all_artist_names = set()
-    for artist in song_artists:
-        if artist:
-            # Split combined artists into individuals
-            for individual in split_artists(artist):
-                if q_lower in individual.lower():
-                    all_artist_names.add(individual)
-    for artist in album_artists:
-        if artist:
-            for individual in split_artists(artist):
-                if q_lower in individual.lower():
-                    all_artist_names.add(individual)
-    
-    scored_artists = []
-    for artist_name in all_artist_names:
-        artist_score = score_text(artist_name, multiplier=2)
-        scored_artists.append(({"name": artist_name}, artist_score))
-    
-    scored_artists.sort(key=lambda x: x[1], reverse=True)
-    artists = [a[0] for a in scored_artists[:20]]
-    best_artist_score = scored_artists[0][1] if scored_artists else 0
-    
-    # === DETERMINE BEST MATCH TYPE ===
-    # Priority: Direct title/name matches beat secondary matches
+    # Python side processing for Artist strings (splitting "A feat. B")
+    # This loop is usually small (number of distinct matching artist strings < 100 usually)
+    found_artists = set()
+    for art_str in raw_artist_matches:
+        if not art_str: continue
+        # Simple splitting
+        parts = re.split(r'\s*[,&]\s*|\s+feat\.?\s+|\s+ft\.?\s+|\s+featuring\s+|\s+and\s+|\s+with\s+', art_str, flags=re.IGNORECASE)
+        for p in parts:
+            p_clean = p.strip()
+            if q_lower in p_clean.lower():
+                found_artists.add(p_clean)
+                
+    # Sort artists by similarity
+    sorted_artists = sorted(list(found_artists), key=lambda x: (x.lower() == q_lower, x.lower().startswith(q_lower)), reverse=True)
+    artists = [{"name": name} for name in sorted_artists[:10]]
+
+    # Best Match Determination
     best_match_type = None
+    best_score = 0
     
-    # Check for direct title matches first (highest priority)
-    if best_song_title_match and best_song_score >= best_album_score and best_song_score >= best_artist_score:
-        best_match_type = "song"
-    elif best_album_title_match and best_album_score >= best_song_score and best_album_score >= best_artist_score:
-        best_match_type = "album"
-    elif best_artist_score >= 500:  # Artist name starts with or exact match
-        best_match_type = "artist"
-    # Fallback: highest absolute score
-    elif best_song_score >= best_album_score and best_song_score >= best_artist_score and best_song_score > 0:
-        best_match_type = "song"
-    elif best_album_score >= best_artist_score and best_album_score > 0:
-        best_match_type = "album"
-    elif best_artist_score > 0:
-        best_match_type = "artist"
+    # Heuristic: Compare best song vs best album vs exact artist match
+    # Since we moved logic to SQL, we don't have explicit Python objects with scores attached unless we unpack.
+    # We will infer best match from list heads.
     
+    # Define "High Confidence" if the first result is an exact match
+    song_exact = songs[0].title.lower() == q_lower if songs else False
+    album_exact = albums[0].title.lower() == q_lower if albums else False
+    artist_exact = sorted_artists[0].lower() == q_lower if sorted_artists else False
+    
+    if song_exact:
+        best_match_type = "song"
+    elif album_exact:
+        best_match_type = "album"
+    elif artist_exact:
+        best_match_type = "artist"
+    elif songs: # Fallback to song if no exact match but results exist
+        best_match_type = "song"
+
     return {
         "songs": songs,
         "albums": albums,
         "artists": artists,
-        "bestMatchType": best_match_type,
-        "scores": {
-            "song": best_song_score,
-            "album": best_album_score,
-            "artist": best_artist_score
-        }
+        "bestMatchType": best_match_type
     }
 
 # --- ALBUMS ---
