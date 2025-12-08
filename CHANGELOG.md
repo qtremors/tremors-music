@@ -2,6 +2,21 @@
 
 All notable changes to Tremors Music are documented in this file.
 
+## [0.9.1] - 2024-12-08
+
+### Added
+- **Synced Lyrics Support**: Backend now stores and serves time-synced lyrics (LRC format) in the database.
+- **Lyrics Caching**: Results from online searches are now cached locally, making subsequent loads instant.
+
+### Fixed
+- **Lyrics Loading Performance**: Rewrote `get_lyrics` endpoint to prioritize: 
+  1. Database Cache (Instant)
+  2. Local File Embedded Tags (Fast)
+  3. Online API (Fallback)
+- **Local File Facade**: Scanner now correctly detects and extracts embedded LRC lyrics from music files.
+
+---
+
 ## [0.9.0] - 2024-12-08 (Beta Release)
 
 ### 🎉 First Beta Release

@@ -218,7 +218,6 @@ If you want to preserve your library before uninstalling:
 ### Coming Soon
 - [ ] First-run welcome wizard
 - [ ] Auto-update checker (opt-in)
-- [ ] Online lyrics fetching (opt-in)
 - [ ] Crash reporting (opt-in)
 - [ ] Equalizer controls
 
@@ -230,6 +229,7 @@ If you want to preserve your library before uninstalling:
 - [ ] Discord Rich Presence
 
 ### Recently Completed
+- [x] **Online & Synced Lyrics** (with caching)
 - [x] Fisher-Yates shuffle algorithm
 - [x] Queue management improvements
 - [x] File-based logging
