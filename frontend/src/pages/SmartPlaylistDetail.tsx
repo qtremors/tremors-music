@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getFavorites, getRecentlyAdded, getMostPlayed, getCoverUrl, toggleFavorite } from '../lib/api';
 import { usePlayerStore } from '../stores/playerStore';
-import { formatTime, cn } from '../lib/utils';
+import { formatTime, cn, shuffleArray } from '../lib/utils';
 import { Play, Shuffle, ArrowLeft, Heart, Clock, TrendingUp, Sparkles } from 'lucide-react';
 import { SongListSkeleton } from '../components/Skeletons';
 import { SongContextMenu, ArtistLink } from '../components/ContextMenu';
@@ -61,7 +61,7 @@ export function SmartPlaylistDetail() {
 
     const handleShuffleAll = () => {
         if (songs && songs.length > 0) {
-            const shuffled = [...songs].sort(() => Math.random() - 0.5);
+            const shuffled = shuffleArray(songs);
             usePlayerStore.setState({ isShuffle: true, queue: shuffled, originalQueue: songs });
             playSong(shuffled[0]);
         }

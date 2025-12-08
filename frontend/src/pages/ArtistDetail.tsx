@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getArtistWork, getCoverUrl } from '../lib/api';
 import { usePlayerStore } from '../stores/playerStore';
 import { useToastStore } from '../stores/toastStore';
-import { formatTime, cn } from '../lib/utils';
+import { formatTime, cn, shuffleArray } from '../lib/utils';
 import { Play, Shuffle, ArrowLeft, Disc, MoreVertical, ListPlus } from 'lucide-react';
 import { ArtistDetailSkeleton } from '../components/Skeletons';
 import { SongContextMenu, AlbumLink } from '../components/ContextMenu';
@@ -24,10 +24,10 @@ export function ArtistDetail() {
     });
 
     if (isLoading) return <ArtistDetailSkeleton />;
-    if (!work) return null;
+    if (!work || !Array.isArray(work)) return null;
 
     // Flatten songs for the "Play All" button
-    const allSongs = work.flatMap(group => group.songs);
+    const allSongs = work.flatMap(group => Array.isArray(group.songs) ? group.songs : []);
 
     const handlePlayAll = () => {
         if (allSongs.length === 0) return;
@@ -38,8 +38,7 @@ export function ArtistDetail() {
 
     const handleShuffleAll = () => {
         if (allSongs.length === 0) return;
-        // Randomize
-        const shuffled = [...allSongs].sort(() => Math.random() - 0.5);
+        const shuffled = shuffleArray(allSongs);
         usePlayerStore.setState({ isShuffle: true, queue: shuffled, originalQueue: allSongs });
         playSong(shuffled[0]);
     };
@@ -140,7 +139,7 @@ function AlbumSection({
 
     const handleShuffleAlbum = () => {
         if (group.songs.length > 0) {
-            const shuffled = [...group.songs].sort(() => Math.random() - 0.5);
+            const shuffled = shuffleArray(group.songs);
             setQueue(shuffled);
             usePlayerStore.setState({ isShuffle: true, originalQueue: group.songs });
             playSong(shuffled[0]);
@@ -218,7 +217,7 @@ function AlbumSection({
 
             {/* Songs (Right Side) */}
             <div className="flex-1 min-w-0">
-                {group.songs.map((song) => {
+                {(group.songs || []).map((song) => {
                     const isActive = currentSong?.id === song.id;
                     return (
                         <div

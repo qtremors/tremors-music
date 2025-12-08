@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getAlbum, getAlbumSongs, getCoverUrl } from '../lib/api';
 import { usePlayerStore } from '../stores/playerStore';
-import { formatTime, cn } from '../lib/utils';
+import { formatTime, cn, shuffleArray } from '../lib/utils';
 import { Play, ArrowLeft, Clock, Shuffle } from 'lucide-react';
 import { AlbumDetailSkeleton } from '../components/Skeletons';
 import { ArtistLink } from '../components/ContextMenu';
@@ -48,7 +48,7 @@ export function AlbumDetail() {
 
   const handleShuffleAlbum = () => {
     if (songs && songs.length > 0) {
-      const shuffled = [...songs].sort(() => Math.random() - 0.5);
+      const shuffled = shuffleArray(songs);
       usePlayerStore.setState({ isShuffle: true, queue: shuffled, originalQueue: songs });
       playSong(shuffled[0]);
     }
@@ -132,13 +132,15 @@ export function AlbumDetail() {
                   isCurrent && "bg-gray-200 dark:bg-white/10"
                 )}
               >
-                <div className="w-10 text-center text-sm text-apple-subtext font-medium">
+                <div className="w-10 text-center text-sm text-apple-subtext font-medium relative">
                   {isCurrent ? (
                     <Play size={12} fill="currentColor" className="text-apple-accent mx-auto" />
                   ) : (
-                    <span className="group-hover:hidden">{trackNum}</span>
+                    <>
+                      <span className="group-hover:hidden">{trackNum}</span>
+                      <Play size={12} fill="currentColor" className="hidden group-hover:block mx-auto text-apple-text" />
+                    </>
                   )}
-                  <Play size={12} fill="currentColor" className="hidden group-hover:block mx-auto text-apple-text" />
                 </div>
 
                 <div className={cn("flex-1 font-medium text-sm", isCurrent ? "text-apple-accent" : "text-apple-text")}>

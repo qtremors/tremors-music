@@ -116,7 +116,7 @@ export const usePlayerStore = create<PlayerState>()(
 
       // Queue management actions
       reorderQueue: (oldIndex: number, newIndex: number) => {
-        const { queue, currentIndex, currentSong } = get();
+        const { queue, currentSong } = get();
         const newQueue = [...queue];
         const [removed] = newQueue.splice(oldIndex, 1);
         newQueue.splice(newIndex, 0, removed);
@@ -138,22 +138,25 @@ export const usePlayerStore = create<PlayerState>()(
       },
 
       addToQueue: (song: Song) => {
-        const { queue, currentSong } = get();
+        const { queue, originalQueue, currentSong } = get();
         const currentIdx = queue.findIndex(s => s.id === currentSong?.id);
 
         // Insert after current song, or at end if no current song
         const newQueue = [...queue];
+        const newOriginalQueue = [...originalQueue];
         if (currentIdx >= 0) {
           newQueue.splice(currentIdx + 1, 0, song);
         } else {
           newQueue.push(song);
         }
+        // Also add to originalQueue to keep them in sync
+        newOriginalQueue.push(song);
 
-        set({ queue: newQueue });
+        set({ queue: newQueue, originalQueue: newOriginalQueue });
       },
 
       clearQueue: () => {
-        set({ queue: [], originalQueue: [], currentIndex: -1 });
+        set({ queue: [], originalQueue: [], currentIndex: -1, currentSong: null, isPlaying: false });
       },
     }),
     {

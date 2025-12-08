@@ -1,8 +1,12 @@
 import axios from 'axios';
 import { Song, Album } from '../types';
 
+// In development, Vite proxies /api to the backend.
+// In production (Tauri build), we need the full backend URL.
+const API_BASE = import.meta.env.DEV ? '/api' : 'http://127.0.0.1:8000';
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: API_BASE,
 });
 
 // --- SONGS ---
@@ -10,7 +14,7 @@ export const getSongs = async (offset = 0, limit = 5000, sortBy = 'title', order
   const response = await api.get<Song[]>(`/library/songs`, {
     params: { offset, limit, sort_by: sortBy, order }
   });
-  return response.data;
+  return Array.isArray(response.data) ? response.data : [];
 };
 
 export const searchLibrary = async (query: string) => {
@@ -22,7 +26,7 @@ export const searchLibrary = async (query: string) => {
 // --- ALBUMS ---
 export const getAlbums = async (offset = 0, limit = 50) => {
   const response = await api.get<Album[]>(`/library/albums?offset=${offset}&limit=${limit}`);
-  return response.data;
+  return Array.isArray(response.data) ? response.data : [];
 };
 
 export const getAlbum = async (id: number) => {
@@ -32,11 +36,11 @@ export const getAlbum = async (id: number) => {
 
 export const getAlbumSongs = async (id: number) => {
   const response = await api.get<Song[]>(`/library/albums/${id}/songs`);
-  return response.data;
+  return Array.isArray(response.data) ? response.data : [];
 };
 
 export const getCoverUrl = (albumId: number) => {
-  return `http://127.0.0.1:8000/covers/${albumId}`;
+  return `${API_BASE}/covers/${albumId}`;
 };
 
 // --- ARTISTS ---
@@ -53,12 +57,12 @@ export interface ArtistWork {
 
 export const getArtists = async () => {
   const response = await api.get<Artist[]>('/library/artists');
-  return response.data;
+  return Array.isArray(response.data) ? response.data : [];
 };
 
 export const getArtistWork = async (name: string) => {
   const response = await api.get<ArtistWork[]>(`/library/artists/${encodeURIComponent(name)}/work`);
-  return response.data;
+  return Array.isArray(response.data) ? response.data : [];
 };
 
 // --- GENRES ---
@@ -69,29 +73,29 @@ export interface Genre {
 
 export const getGenres = async () => {
   const response = await api.get<Genre[]>('/library/genres');
-  return response.data;
+  return Array.isArray(response.data) ? response.data : [];
 };
 
 export const getGenreSongs = async (name: string) => {
   // Use query parameter to avoid issues with / in genre names like "R&B/Soul"
   const response = await api.get<Song[]>('/library/genres/songs', { params: { name } });
-  return response.data;
+  return Array.isArray(response.data) ? response.data : [];
 };
 
 // --- Smart Playlists ---
 export const getFavorites = async (limit = 100) => {
   const response = await api.get<Song[]>('/library/smart-playlists/favorites', { params: { limit } });
-  return response.data;
+  return Array.isArray(response.data) ? response.data : [];
 };
 
 export const getRecentlyAdded = async (limit = 50) => {
   const response = await api.get<Song[]>('/library/smart-playlists/recently-added', { params: { limit } });
-  return response.data;
+  return Array.isArray(response.data) ? response.data : [];
 };
 
 export const getMostPlayed = async (limit = 50) => {
   const response = await api.get<Song[]>('/library/smart-playlists/most-played', { params: { limit } });
-  return response.data;
+  return Array.isArray(response.data) ? response.data : [];
 };
 
 export const incrementPlayCount = async (songId: number) => {
@@ -111,7 +115,7 @@ export interface Playlist {
 
 export const getPlaylists = async () => {
   const response = await api.get<Playlist[]>('/playlists');
-  return response.data;
+  return Array.isArray(response.data) ? response.data : [];
 };
 
 export const createPlaylist = async (name: string) => {
@@ -125,7 +129,7 @@ export const addToPlaylist = async (playlistId: number, songIds: number[]) => {
 
 export const getPlaylistSongs = async (id: string) => {
   const response = await api.get<Song[]>(`/playlists/${id}/songs`);
-  return response.data;
+  return Array.isArray(response.data) ? response.data : [];
 };
 
 export const deletePlaylist = async (id: number) => {
@@ -154,7 +158,7 @@ export const getLyrics = async (songId: number) => {
 };
 
 export const getStreamUrl = (songId: number) => {
-  return `http://127.0.0.1:8000/stream/${songId}`;
+  return `${API_BASE}/stream/${songId}`;
 };
 
 export default api;

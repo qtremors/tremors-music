@@ -5,6 +5,7 @@ from database import get_session
 from models import Song, Album, LibraryPath
 from scanner import scan_directory
 import os
+import re
 import urllib.parse
 
 router = APIRouter(prefix="/library", tags=["Library"])
@@ -32,19 +33,6 @@ def remove_path(path_id: int, session: Session = Depends(get_session)):
     session.delete(path_obj)
     session.commit()
     return {"message": "Path removed"}
-
-@router.patch("/paths/{path_id}")
-def update_library_path(path_id: int, new_path: str, session: Session = Depends(get_session)):
-    """Update an existing library path."""
-    path_obj = session.get(LibraryPath, path_id)
-    if not path_obj:
-        raise HTTPException(status_code=404, detail="Path not found")
-    if not os.path.exists(new_path):
-        raise HTTPException(status_code=400, detail="Directory does not exist")
-    path_obj.path = new_path
-    session.commit()
-    session.refresh(path_obj)
-    return path_obj
 
 @router.patch("/paths/{path_id}")
 def update_library_path(path_id: int, new_path: str, session: Session = Depends(get_session)):
@@ -91,15 +79,6 @@ def get_scan_status():
     """Get real-time scanner progress"""
     from scanner_progress import scanner_progress
     return scanner_progress.to_dict()
-
-@router.post("/scan/stop")
-def stop_scan():
-    """Stop the currently running scan."""
-    from scanner_progress import scanner_progress
-    if not scanner_progress.is_scanning:
-        raise HTTPException(status_code=400, detail="No scan is currently running")
-    scanner_progress.finish()
-    return {"message": "Scan stopped"}
 
 @router.post("/scan/stop")
 def stop_scan():
@@ -171,7 +150,6 @@ def get_genres(session: Session = Depends(get_session)):
         if song.genre:
             # Split multi-genre tags (common separators: comma, semicolon)
             # Don't split on / to keep genres like "R&B/Soul" together
-            import re
             genres = re.split(r'[,;]', song.genre)
             for genre in genres:
                 genre = genre.strip()
@@ -186,7 +164,6 @@ def get_genres(session: Session = Depends(get_session)):
 @router.get("/genres/songs", response_model=List[Song])
 def get_genre_songs(name: str, session: Session = Depends(get_session)):
     """Get all songs for a specific genre using query parameter."""
-    import re
     
     # Get all songs with genre tags
     all_songs = session.exec(select(Song).where(Song.genre.is_not(None))).all()
@@ -208,24 +185,13 @@ def get_genre_songs(name: str, session: Session = Depends(get_session)):
 # --- SMART PLAYLISTS ---
 @router.get("/smart-playlists/favorites", response_model=List[Song])
 def get_favorites(limit: int = 100, session: Session = Depends(get_session)):
-    """Get favorite songs (rating >= 4) or all songs if no ratings set."""
-    # First try to get songs with high ratings
+    """Get favorite songs (rating == 5 only)."""
     songs = session.exec(
         select(Song)
-        .where(Song.rating >= 4)
-        .order_by(Song.rating.desc(), Song.play_count.desc())
+        .where(Song.rating == 5)
+        .order_by(Song.play_count.desc())
         .limit(limit)
     ).all()
-    
-    # If no rated songs, return most played instead
-    if len(songs) == 0:
-        songs = session.exec(
-            select(Song)
-            .where(Song.play_count > 0)
-            .order_by(Song.play_count.desc())
-            .limit(limit)
-        ).all()
-    
     return songs
 
 
@@ -411,7 +377,6 @@ def search_library(q: str = "", limit: int = 50, session: Session = Depends(get_
         if not artist_str:
             return []
         # Common separators: comma, &, feat., ft., featuring, and, with
-        import re
         # Split by common separators
         parts = re.split(r'\s*[,&]\s*|\s+feat\.?\s+|\s+ft\.?\s+|\s+featuring\s+|\s+and\s+|\s+with\s+', artist_str, flags=re.IGNORECASE)
         return [p.strip() for p in parts if p.strip()]

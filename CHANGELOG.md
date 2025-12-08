@@ -2,6 +2,49 @@
 
 All notable changes to Tremors Music are documented in this file.
 
+## [0.9.0] - 2024-12-08 (Beta Release)
+
+### 🎉 First Beta Release
+
+This marks the first official beta release of Tremors Music, ready for public testing.
+
+### Added
+- **Production Logging**: File-based logging system with rotation
+  - Logs stored in `logs/tremorsmusic.log`
+  - Max 5MB per file, keeps 5 backups
+  - Logs startup, errors, and key operations
+
+- **Privacy Documentation**: Added [PRIVACY.md](PRIVACY.md) explaining local-only operation
+- **Contribution Guidelines**: Added [CONTRIBUTING.md](CONTRIBUTING.md) for developers
+- **License**: Added source-available license
+
+### Changed
+- **Process Name**: Backend now shows as `tremorsmusic.exe` in Task Manager (was `backend.exe`)
+- **Version Scheme**: Changed to semantic versioning with beta tag
+- **Console Window**: Hidden in production (uses log files instead)
+- **App Icons**: Generated proper icon set from new logo
+
+### Fixed
+- **Favorites Bug**: Now only shows songs you explicitly favorited (rating = 5)
+- **Album Art Loading**: Art now appears immediately after scan (no restart needed)
+- **Shuffle Algorithm**: Fixed biased shuffle with proper Fisher-Yates implementation
+- **Player Store**: `addToQueue` now properly updates `originalQueue`  
+- **Player Store**: `clearQueue` now resets all state including `currentSong`
+- **DangerZone Toast**: Now visible before page reload
+- **Backend Exceptions**: Replaced bare `except` with specific exception types
+- **API URLs**: Environment-aware (works in both dev and production)
+- **TypeScript Errors**: Fixed `NodeJS.Timeout` and `import.meta.env` issues
+
+### Documentation
+- **README.md**: Complete rewrite with production-grade documentation
+  - Detailed feature descriptions
+  - Installation instructions
+  - System impact explanation
+  - Troubleshooting guide
+  - Future roadmap
+
+---
+
 ## [1.4.0] - 2024-12-08
 
 ### Added

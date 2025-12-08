@@ -5,7 +5,7 @@ import { getSongs, getCoverUrl, getAlbums, toggleFavorite } from '../lib/api';
 import { usePlayerStore } from '../stores/playerStore';
 import { useThemeStore } from '../stores/themeStore';
 import { useFilterStore } from '../stores/filterStore';
-import { formatTime, cn } from '../lib/utils';
+import { formatTime, cn, shuffleArray } from '../lib/utils';
 import { Play, Music, Shuffle, Check, ArrowUp, ArrowDown, MoreVertical, Heart } from 'lucide-react';
 import { AddToPlaylistModal } from './AddToPlaylistModal';
 import { SongContextMenu, ArtistLink, AlbumLink } from './ContextMenu';
@@ -86,7 +86,7 @@ export function SongList() {
 
     const handleInstantShuffle = () => {
         if (!songs || songs.length === 0) return;
-        const newQueue = [...songs].sort(() => Math.random() - 0.5);
+        const newQueue = shuffleArray(songs);
         usePlayerStore.setState({ isShuffle: true, queue: newQueue, originalQueue: songs });
         playSong(newQueue[0]);
     };

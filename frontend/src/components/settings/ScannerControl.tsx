@@ -1,5 +1,6 @@
 // Scanner control with progress tracking and error details
 import { useState, useEffect, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { RefreshCw, StopCircle, CheckCircle, AlertCircle, Clock, ChevronDown, ChevronUp } from 'lucide-react';
 import api from '../../lib/api';
 import { Card } from '../common/Card';
@@ -32,6 +33,7 @@ interface ScanProgress {
 }
 
 export function ScannerControl() {
+    const queryClient = useQueryClient();
     const [isScanning, setIsScanning] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [showErrors, setShowErrors] = useState(false);
@@ -45,7 +47,7 @@ export function ScannerControl() {
         error_details: [],
         last_scan_result: null
     });
-    const pollInterval = useRef<NodeJS.Timeout | null>(null);
+    const pollInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
     useEffect(() => {
         checkScanStatus();
@@ -59,13 +61,28 @@ export function ScannerControl() {
     const checkScanStatus = async () => {
         try {
             const res = await api.get<ScanProgress>('/library/scan/status');
-            setProgress(res.data);
-            setIsScanning(res.data.is_scanning);
+            const data = res.data;
+            if (!data) return; // Guard against null/undefined response
+
+            // Ensure error_details is always an array
+            const safeData: ScanProgress = {
+                ...data,
+                error_details: Array.isArray(data.error_details) ? data.error_details : [],
+                last_scan_result: data.last_scan_result ? {
+                    ...data.last_scan_result,
+                    error_details: Array.isArray(data.last_scan_result.error_details)
+                        ? data.last_scan_result.error_details
+                        : []
+                } : null
+            };
+
+            setProgress(safeData);
+            setIsScanning(safeData.is_scanning);
             setError(null);
 
-            if (res.data.is_scanning && !pollInterval.current) {
+            if (safeData.is_scanning && !pollInterval.current) {
                 startPolling();
-            } else if (!res.data.is_scanning && pollInterval.current) {
+            } else if (!safeData.is_scanning && pollInterval.current) {
                 stopPolling();
             }
         } catch (e: any) {
@@ -82,6 +99,14 @@ export function ScannerControl() {
         if (pollInterval.current) {
             clearInterval(pollInterval.current);
             pollInterval.current = null;
+
+            // Invalidate all library-related caches so new data appears
+            queryClient.invalidateQueries({ queryKey: ['songs'] });
+            queryClient.invalidateQueries({ queryKey: ['albums'] });
+            queryClient.invalidateQueries({ queryKey: ['albums-all'] });
+            queryClient.invalidateQueries({ queryKey: ['artists'] });
+            queryClient.invalidateQueries({ queryKey: ['genres'] });
+            queryClient.invalidateQueries({ queryKey: ['smart-playlist'] });
         }
     };
 

@@ -21,7 +21,7 @@ export function LibraryPathManager() {
     const loadPaths = useCallback(async () => {
         try {
             const res = await api.get<LibraryPath[]>('/library/paths');
-            setPaths(res.data);
+            setPaths(Array.isArray(res.data) ? res.data : []);
         } catch {
             console.error('Failed to load paths');
         }

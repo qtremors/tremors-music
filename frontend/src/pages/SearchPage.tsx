@@ -30,7 +30,14 @@ export function SearchPage() {
     queryFn: async () => {
       if (!query) return { songs: [], albums: [], artists: [] };
       const res = await api.get(`/library/search?q=${encodeURIComponent(query)}`);
-      return res.data;
+      const data = res.data || {};
+      return {
+        songs: Array.isArray(data.songs) ? data.songs : [],
+        albums: Array.isArray(data.albums) ? data.albums : [],
+        artists: Array.isArray(data.artists) ? data.artists : [],
+        bestMatchType: data.bestMatchType,
+        scores: data.scores,
+      };
     },
     enabled: !!query,
   });

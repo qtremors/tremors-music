@@ -4,7 +4,7 @@ import { getPlaylistSongs, getPlaylists, deletePlaylist, getCoverUrl } from '../
 import { usePlayerStore } from '../stores/playerStore';
 import { useThemeStore } from '../stores/themeStore';
 import { useToastStore } from '../stores/toastStore';
-import { formatTime, cn } from '../lib/utils';
+import { formatTime, cn, shuffleArray } from '../lib/utils';
 import { Play, Trash2, Music, ListMusic, Shuffle } from 'lucide-react';
 import { SongListSkeleton } from '../components/Skeletons';
 import { useConfirm } from '../stores/confirmStore';
@@ -44,7 +44,7 @@ export function PlaylistDetail() {
 
   const handleShuffleAll = () => {
     if (songs && songs.length > 0) {
-      const shuffled = [...songs].sort(() => Math.random() - 0.5);
+      const shuffled = shuffleArray(songs);
       usePlayerStore.setState({ isShuffle: true, queue: shuffled, originalQueue: songs });
       playSong(shuffled[0]);
     }

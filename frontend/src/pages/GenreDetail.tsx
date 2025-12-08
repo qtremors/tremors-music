@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getGenreSongs, getCoverUrl } from '../lib/api';
 import { usePlayerStore } from '../stores/playerStore';
-import { formatTime, cn } from '../lib/utils';
+import { formatTime, cn, shuffleArray } from '../lib/utils';
 import { Play, Shuffle, ArrowLeft, Music } from 'lucide-react';
 import { SongListSkeleton } from '../components/Skeletons';
 import { SongContextMenu, ArtistLink, AlbumLink } from '../components/ContextMenu';
@@ -33,7 +33,7 @@ export function GenreDetail() {
 
     const handleShuffleAll = () => {
         if (songs && songs.length > 0) {
-            const shuffled = [...songs].sort(() => Math.random() - 0.5);
+            const shuffled = shuffleArray(songs);
             usePlayerStore.setState({ isShuffle: true, queue: shuffled, originalQueue: songs });
             playSong(shuffled[0]);
         }

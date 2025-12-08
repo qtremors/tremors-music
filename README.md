@@ -1,111 +1,273 @@
-# Tremors Music Player 🎵
+# Tremors Music 🎵
 
-**Tremors Music** is a high-performance, local-first music player built for speed, aesthetics, and audiophiles.
+<p align="center">
+  <img src="tremorsmusic.png" alt="Tremors Music Logo" width="128" height="128">
+</p>
 
-It combines the raw power of a **Python backend** (for file system access and metadata parsing) with the fluidity of a **Modern React UI**, designed to look and feel like a native Apple Music experience on your desktop.
+<p align="center">
+  <strong>A beautiful, local-first music player for your personal collection</strong>
+</p>
 
-## 🚀 Features
-
-### Library & Browsing
-- **Instant Library Loading:** Handles 5,000+ songs effortlessly using virtualized lists
-- **Local First:** Your music stays on your disk. No cloud uploads, no accounts required
-- **Smart Metadata:** Extracts ID3 tags, Cover Art, and Tech Specs (Bitrate, Format, Sample Rate)
-- **Browse By:** Songs, Albums, Artists, Genres, or Custom Playlists
-- **Persistent Filters:** Sort preferences are remembered across page navigation
-
-### Playback
-- **Full Player Controls:** Play, pause, next, previous, seek, volume
-- **Queue Management:** Drag-to-reorder, add songs to queue, view upcoming tracks
-- **Shuffle & Repeat:** Off, repeat all, repeat one modes
-- **Keyboard Shortcuts:** Spacebar to play/pause, arrow keys for skip
-
-### Organization
-- **Genre Browsing:** Colorful genre cards with song counts
-- **Multi-Disc Support:** Albums with multiple discs display in correct order
-- **Custom Playlists:** Create, edit, and manage your own playlists
-- **Context Menus:** Right-click or 3-dot menu on any song/album for quick actions
-
-### Visuals
-- **Apple Music Inspired:** Glassmorphism design with blur effects
-- **Dark/Light Mode:** Toggle between themes
-- **Custom Accent Colors:** Pick your favorite color for highlights
-- **Now Playing View:** Full-screen immersive experience with large art
-
-### Lyrics
-- **Lyrics Engine:** Displays lyrics stored in song metadata
-- **Full-Screen Lyrics:** View in the Now Playing screen
-
-## 🛠️ Tech Stack
-
-| Layer | Technologies |
-|-------|-------------|
-| **Backend** | Python 3.11+, FastAPI, SQLModel (SQLite), Mutagen |
-| **Frontend** | React 18, TypeScript, Vite, Tailwind CSS |
-| **State** | Zustand (with localStorage persistence) |
-| **Data** | TanStack Query for caching & fetching |
-| **UI** | Lucide Icons, react-virtuoso, Framer Motion |
-| **Tooling** | `uv` (Python), `npm` (Node.js) |
-
-## ⚡ Quick Start
-
-### Prerequisites
-
-- **Node.js** (v18+)
-- **Python** (v3.11+)
-- **uv** (Install via `pip install uv`)
-
-### Installation
-
-1. **Clone the repository:**
-    ```bash
-    git clone https://github.com/qtremors/tremors-music.git
-    cd tremors-music
-    ```
-
-2. **Install Backend Dependencies:**
-    ```bash
-    cd backend
-    uv sync
-    cd ..
-    ```
-
-3. **Install Frontend Dependencies:**
-    ```bash
-    cd frontend
-    npm install
-    cd ..
-    ```
-
-### Running the App
-
-Start both servers in separate terminals:
-
-**Terminal 1 (Backend):**
-```bash
-cd backend
-uv run uvicorn main:app --reload
-```
-
-**Terminal 2 (Frontend):**
-```bash
-cd frontend
-npm run dev
-```
-
-- **Frontend:** http://localhost:5173
-- **Backend API:** http://localhost:8000/docs
-
-## 📖 User Guide
-
-1. **Initial Setup:** Open the app and go to **Settings** (gear icon)
-2. **Add Music:** Paste the file path to your music folder (e.g., `D:\Music`) and click **+**
-3. **Scan:** Click **Rescan Library**. Watch the progress indicator
-4. **Play:** Go to "Songs" or "Albums" and start listening!
-
-## 📚 Additional Documentation
-
-- [CHANGELOG.md](./CHANGELOG.md) - Version history and changes
+<p align="center">
+  <a href="#-features">Features</a> •
+  <a href="#-installation">Installation</a> •
+  <a href="#-how-it-works">How It Works</a> •
+  <a href="#-system-impact">System Impact</a> •
+  <a href="#-troubleshooting">Troubleshooting</a> •
+  <a href="#-roadmap">Roadmap</a>
+</p>
 
 ---
 
-Built with 💖 by Tremors
+## ✨ What is Tremors Music?
+
+Tremors Music is a **high-performance desktop music player** designed for users who want:
+
+- 🔒 **Complete Privacy** - Your music stays on your computer. No accounts, no cloud, no tracking.
+- 🎨 **Beautiful UI** - Apple Music-inspired design with glassmorphism effects
+- ⚡ **Speed** - Handles 10,000+ songs with virtualized lists and smart caching
+- 🎯 **Simplicity** - Point it at your music folder and start listening
+
+Perfect for audiophiles, privacy-conscious users, and anyone tired of bloated music apps.
+
+---
+
+## 🚀 Features
+
+### Library Management
+| Feature | Description |
+|---------|-------------|
+| **Smart Scanning** | Automatically reads ID3 tags, album art, and technical metadata |
+| **Multi-format Support** | MP3, FLAC, M4A, WAV, OGG, WMA, AAC |
+| **Browse By** | Songs, Albums, Artists, Genres |
+| **Search** | Instant search across your entire library |
+| **Persistent Sorting** | Your sort preferences are remembered |
+
+### Playback
+| Feature | Description |
+|---------|-------------|
+| **Full Controls** | Play, pause, next, previous, seek, volume |
+| **Queue Management** | Drag-and-drop reordering, add to queue |
+| **Shuffle & Repeat** | Off, repeat all, repeat one modes |
+| **Keyboard Shortcuts** | Spacebar (play/pause), arrows (skip) |
+| **Now Playing View** | Immersive full-screen experience |
+
+### Organization
+| Feature | Description |
+|---------|-------------|
+| **Custom Playlists** | Create, edit, rename, delete |
+| **Smart Playlists** | Favorites, Recently Added, Most Played |
+| **Multi-Disc Albums** | Proper disc/track ordering |
+| **Genre Browsing** | Colorful cards with song counts |
+
+### Visuals
+| Feature | Description |
+|---------|-------------|
+| **Dark/Light Mode** | Toggle between themes |
+| **Custom Accent Colors** | 12 color options |
+| **Album Art Display** | Large artwork in Now Playing |
+| **Lyrics View** | Display embedded lyrics |
+
+---
+
+## 📥 Installation
+
+### For Users (Recommended)
+
+1. **Download** the latest installer from [Releases](https://github.com/qtremors/tremors-music/releases)
+2. **Run** the installer (`Tremors Music_x.x.x_x64-setup.exe`)
+3. **Choose** your installation folder
+4. **Launch** Tremors Music from the Start Menu or desktop shortcut
+
+### For Developers
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup instructions.
+
+---
+
+## ⚙️ How It Works
+
+Tremors Music uses a **hybrid architecture** for the best of both worlds:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Tremors Music                         │
+├─────────────────────────────────────────────────────────┤
+│  ┌─────────────────┐     ┌─────────────────────────┐   │
+│  │   Tauri Shell   │────▶│   React Frontend        │   │
+│  │   (Window)      │     │   (UI, Player, State)   │   │
+│  └─────────────────┘     └───────────┬─────────────┘   │
+│                                      │ HTTP API        │
+│                          ┌───────────▼─────────────┐   │
+│                          │   Python Backend        │   │
+│                          │   (tremorsmusic.exe)    │   │
+│                          │   - File scanning       │   │
+│                          │   - Audio streaming     │   │
+│                          │   - Database (SQLite)   │   │
+│                          └─────────────────────────┘   │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Components
+
+| Component | Technology | Purpose |
+|-----------|------------|---------|
+| **Shell** | Tauri (Rust) | Window management, native integration |
+| **Frontend** | React + TypeScript | User interface, playback controls |
+| **Backend** | Python + FastAPI | File scanning, metadata, streaming |
+| **Database** | SQLite | Library metadata, playlists, settings |
+
+---
+
+## 💻 System Impact
+
+### What Gets Installed
+
+When you install Tremors Music, the following is created in your chosen installation folder:
+
+```
+[Installation Folder]/
+├── Tremors Music.exe       # Main application
+├── tremorsmusic.exe        # Backend service (runs alongside main app)
+├── music.db                # SQLite database (your library)
+├── logs/                   # Application logs
+│   └── tremorsmusic.log    # Log file (rotated, max 5MB × 5)
+└── covers/                 # Cached album artwork
+```
+
+### System Resources
+
+| Resource | Usage |
+|----------|-------|
+| **Disk Space** | ~150 MB (app) + varies (database/cache) |
+| **Memory** | ~100-200 MB during normal use |
+| **CPU** | Minimal (spikes during library scan) |
+| **Network** | None (completely offline) |
+
+### Processes Running
+
+When Tremors Music is open:
+- `Tremors Music.exe` - Main application window
+- `tremorsmusic.exe` - Backend service (starts/stops with app)
+
+### Startup Behavior
+
+- ❌ Does NOT start with Windows
+- ❌ Does NOT run in background
+- ✅ Fully closes when you close the window
+
+---
+
+## 🗑️ Uninstallation
+
+### Complete Removal
+
+1. Open **Settings** > **Apps** > **Tremors Music**
+2. Click **Uninstall**
+3. All application files are removed
+
+### What's Removed
+- All program files
+- Your library database
+- Cached album art
+- Log files
+
+### Keeping Your Data
+
+If you want to preserve your library before uninstalling:
+- Copy `music.db` from the installation folder
+- After reinstalling, place it back in the same location
+
+---
+
+## 🔧 Troubleshooting
+
+### App Won't Start
+
+1. Check if Windows Defender is blocking it
+2. Run as Administrator
+3. Check `logs/tremorsmusic.log` for errors
+
+### Songs Not Appearing
+
+1. Ensure your music files have ID3 tags
+2. Check the scan completed (no spinner in Settings)
+3. Supported formats: MP3, FLAC, M4A, WAV, OGG, WMA, AAC
+
+### Album Art Not Showing
+
+1. Art must be embedded in the audio file
+2. Try rescanning the library
+3. Check if `covers/` folder has write permissions
+
+### Playback Issues
+
+1. Check the file isn't corrupted
+2. Ensure the file path hasn't changed
+3. Try removing and re-adding the library path
+
+### Need More Help?
+
+1. Check the [logs/tremorsmusic.log](logs/) file for errors
+2. Open an issue on [GitHub](https://github.com/qtremors/tremors-music/issues)
+
+---
+
+## 🛣️ Roadmap
+
+### Coming Soon
+- [ ] First-run welcome wizard
+- [ ] Auto-update checker (opt-in)
+- [ ] Online lyrics fetching (opt-in)
+- [ ] Crash reporting (opt-in)
+- [ ] Equalizer controls
+
+### Future Ideas
+- [ ] Music visualizer
+- [ ] Last.fm scrobbling (opt-in)
+- [ ] Podcast support
+- [ ] macOS and Linux builds
+- [ ] Discord Rich Presence
+
+### Recently Completed
+- [x] Fisher-Yates shuffle algorithm
+- [x] Queue management improvements
+- [x] File-based logging
+- [x] Production branding
+
+---
+
+## 📚 Documentation
+
+- [CHANGELOG.md](CHANGELOG.md) - Version history
+- [PRIVACY.md](PRIVACY.md) - Privacy notice
+- [CONTRIBUTING.md](CONTRIBUTING.md) - Development guide
+- [ARCHITECTURE.md](ARCHITECTURE.md) - Technical details
+
+---
+
+## 📄 License
+
+This project is source-available for viewing and personal use. See [LICENSE](LICENSE) for details.
+
+**TL;DR:**
+- ✅ View source, download and use personally
+- ✅ Contribute improvements
+- ❌ Redistribute as your own product
+
+---
+
+## 🙏 Acknowledgments
+
+Built with amazing open source technologies:
+- [Tauri](https://tauri.app/) - Desktop app framework
+- [React](https://react.dev/) - UI framework
+- [FastAPI](https://fastapi.tiangolo.com/) - Python API framework
+- [Mutagen](https://mutagen.readthedocs.io/) - Audio metadata
+- [Lucide](https://lucide.dev/) - Beautiful icons
+
+---
+
+<p align="center">
+  Built with 💖 by <a href="https://github.com/qtremors">Tremors</a>
+</p>

@@ -22,7 +22,8 @@ export function DangerZone() {
         try {
             await resetLibrary();
             addToast('Library reset successfully. Please rescan.', 'success');
-            window.location.reload();
+            // Delay reload so toast is visible
+            setTimeout(() => window.location.reload(), 1500);
         } catch (e) {
             console.error('Failed to reset library:', e);
             addToast('Failed to reset library. Please try again.', 'error');

@@ -16,7 +16,7 @@ def safe_get(audio, key, default=None):
             # Return first value if it's a list
             return value[0] if isinstance(value, list) else value
         return default
-    except:
+    except (TypeError, KeyError, AttributeError):
         return default
 
 def safe_int(value, default=None):
@@ -28,7 +28,14 @@ def safe_int(value, default=None):
         if isinstance(value, str) and '/' in value:
             value = value.split('/')[0]
         return int(value) if str(value).strip() else default
-    except:
+    except (ValueError, TypeError, AttributeError):
+        return default
+
+def safe_float(value, default=None):
+    """Safely convert to float."""
+    try:
+        return float(value) if value else default
+    except (ValueError, TypeError):
         return default
 
 def clean_string(value):
@@ -134,13 +141,6 @@ def scan_directory(root_directory: str):
                         bpm = safe_int(safe_get(audio, 'bpm'))
                         initial_key = clean_string(safe_get(audio, 'initialkey'))
                         
-                        # --- REPLAY GAIN ---
-                        def safe_float(value, default=None):
-                            try:
-                                return float(value) if value else default
-                            except:
-                                return default
-                        
                         rg_track_gain = safe_float(safe_get(audio, 'replaygain_track_gain', '').replace(' dB', ''))
                         rg_track_peak = safe_float(safe_get(audio, 'replaygain_track_peak'))
                         rg_album_gain = safe_float(safe_get(audio, 'replaygain_album_gain', '').replace(' dB', ''))
@@ -222,7 +222,7 @@ def scan_directory(root_directory: str):
                             error_file=full_path,
                             error_msg=error_msg
                         )
-                        pass
+                        continue  # Skip to next file
 
         session.commit()
         scanner_progress.finish()  # Mark scanning as complete
