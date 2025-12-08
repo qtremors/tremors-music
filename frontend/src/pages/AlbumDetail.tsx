@@ -1,9 +1,12 @@
+import { useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getAlbum, getAlbumSongs, getCoverUrl } from '../lib/api';
 import { usePlayerStore } from '../stores/playerStore';
 import { formatTime, cn } from '../lib/utils';
 import { Play, ArrowLeft, Clock, Shuffle } from 'lucide-react';
+import { AlbumDetailSkeleton } from '../components/Skeletons';
+import { ArtistLink } from '../components/ContextMenu';
 
 export function AlbumDetail() {
   const { id } = useParams<{ id: string }>();
@@ -12,15 +15,28 @@ export function AlbumDetail() {
 
   const { data: album } = useQuery({
     queryKey: ['album', id],
-    queryFn: () => getAlbum(id!),
+    queryFn: () => getAlbum(Number(id)),
     enabled: !!id,
   });
 
-  const { data: songs } = useQuery({
+  const { data: rawSongs } = useQuery({
     queryKey: ['album-songs', id],
-    queryFn: () => getAlbumSongs(id!),
+    queryFn: () => getAlbumSongs(Number(id)),
     enabled: !!id,
   });
+
+  // Sort songs by disc_number, then track_number for multi-disc albums
+  const songs = useMemo(() => {
+    if (!rawSongs) return undefined;
+    return [...rawSongs].sort((a, b) => {
+      const discA = a.disc_number || 1;
+      const discB = b.disc_number || 1;
+      if (discA !== discB) return discA - discB;
+      const trackA = a.track_number || 0;
+      const trackB = b.track_number || 0;
+      return trackA - trackB;
+    });
+  }, [rawSongs]);
 
   const handlePlayAlbum = () => {
     if (songs && songs.length > 0) {
@@ -38,7 +54,7 @@ export function AlbumDetail() {
     }
   };
 
-  if (!album) return null;
+  if (!album) return <AlbumDetailSkeleton />;
 
   return (
     <div className="h-full flex flex-col overflow-y-auto bg-apple-gray pb-32">
@@ -69,7 +85,7 @@ export function AlbumDetail() {
             <h5 className="text-apple-accent font-bold text-sm uppercase tracking-wide mb-2">Album</h5>
             <h1 className="text-4xl md:text-5xl font-bold text-apple-text mb-2 tracking-tight">{album.title}</h1>
             <div className="flex items-center gap-2 text-apple-subtext font-medium text-lg">
-              <span className="text-apple-text">{album.artist}</span>
+              <ArtistLink name={album.artist} className="text-apple-text" />
               <span>•</span>
               <span>{songs?.length} Songs</span>
             </div>

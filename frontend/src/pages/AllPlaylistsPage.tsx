@@ -2,10 +2,38 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getPlaylists, deletePlaylist, renamePlaylist, getPlaylistSongs, getCoverUrl } from '../lib/api';
-import { Plus, MoreVertical, Trash2, Edit2, ListMusic, Play } from 'lucide-react';
+import { Plus, MoreVertical, Trash2, Edit2, ListMusic, Play, Heart, Sparkles, TrendingUp } from 'lucide-react';
 import { usePlayerStore } from '../stores/playerStore';
 import { useToastStore } from '../stores/toastStore';
 import { CreatePlaylistModal } from '../components/CreatePlaylistModal';
+import { PlaylistGridSkeleton } from '../components/Skeletons';
+import { useConfirm } from '../stores/confirmStore';
+
+// --- Smart Playlist Card ---
+function SmartPlaylistCard({ type, title, icon: Icon, gradient }: { type: string; title: string; icon: React.ElementType; gradient: string }) {
+  const navigate = useNavigate();
+  return (
+    <div
+      className="group cursor-pointer relative"
+      onClick={() => navigate(`/smart/${type}`)}
+    >
+      <div className={`aspect-square rounded-lg shadow-sm overflow-hidden relative border border-black/5 dark:border-white/5 group-hover:shadow-md transition-all bg-gradient-to-br ${gradient}`}>
+        <div className="w-full h-full flex items-center justify-center">
+          <Icon size={48} className="text-white/80" />
+        </div>
+        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+          <div className="w-12 h-12 bg-white/20 backdrop-blur text-white rounded-full flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 transition">
+            <Play size={24} fill="currentColor" className="ml-1" />
+          </div>
+        </div>
+      </div>
+      <div className="mt-3">
+        <h3 className="font-medium text-apple-text truncate">{title}</h3>
+        <p className="text-xs text-apple-subtext">Smart Playlist</p>
+      </div>
+    </div>
+  );
+}
 
 // --- Sub-Component for Individual Playlist Card ---
 function PlaylistCard({ playlist }: { playlist: any }) {
@@ -27,13 +55,22 @@ function PlaylistCard({ playlist }: { playlist: any }) {
       setQueue(songs);
       playSong(songs[0]);
     } else {
-        addToast('Playlist is empty', 'error');
+      addToast('Playlist is empty', 'error');
     }
   };
 
+  const confirm = useConfirm();
+
   const handleDelete = async (e: any) => {
     e.stopPropagation();
-    if (confirm(`Delete "${playlist.name}"?`)) {
+    const confirmed = await confirm({
+      title: 'Delete Playlist',
+      message: `Are you sure you want to delete "${playlist.name}"?`,
+      confirmText: 'Delete',
+      variant: 'danger',
+    });
+
+    if (confirmed) {
       await deletePlaylist(playlist.id);
       queryClient.invalidateQueries({ queryKey: ['playlists'] });
       addToast('Playlist deleted');
@@ -54,7 +91,7 @@ function PlaylistCard({ playlist }: { playlist: any }) {
   const coverArtId = songs?.[0]?.album_id;
 
   return (
-    <div 
+    <div
       className="group cursor-pointer relative"
       onClick={() => navigate(`/playlists/${playlist.id}`)}
       onMouseLeave={() => setShowMenu(false)}
@@ -62,8 +99,8 @@ function PlaylistCard({ playlist }: { playlist: any }) {
       {/* Art Container */}
       <div className="aspect-square bg-gray-200 dark:bg-white/5 rounded-lg shadow-sm overflow-hidden relative border border-black/5 dark:border-white/5 group-hover:shadow-md transition-all">
         {coverArtId ? (
-          <img 
-            src={getCoverUrl(coverArtId)} 
+          <img
+            src={getCoverUrl(coverArtId)}
             alt={playlist.name}
             className="w-full h-full object-cover transition duration-500 group-hover:scale-105"
             loading="lazy"
@@ -76,16 +113,16 @@ function PlaylistCard({ playlist }: { playlist: any }) {
 
         {/* Play Overlay */}
         <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
-           <button 
-             onClick={handlePlay}
-             className="w-12 h-12 bg-apple-accent text-white rounded-full flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 transition hover:bg-apple-accent/90"
-           >
-             <Play size={24} fill="currentColor" className="ml-1" />
-           </button>
+          <button
+            onClick={handlePlay}
+            className="w-12 h-12 bg-apple-accent text-white rounded-full flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 transition hover:bg-apple-accent/90"
+          >
+            <Play size={24} fill="currentColor" className="ml-1" />
+          </button>
         </div>
 
         {/* Menu Button (Top Right) */}
-        <button 
+        <button
           onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }}
           className={`absolute top-2 right-2 p-1.5 rounded-full bg-black/50 text-white backdrop-blur-md transition ${showMenu ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
         >
@@ -120,10 +157,17 @@ export function AllPlaylistsPage() {
     queryKey: ['playlists'],
     queryFn: getPlaylists,
   });
-  
-  const [isCreating, setIsCreating] = useState(false); 
 
-  if (isLoading) return <div className="p-12 text-center text-apple-subtext">Loading Playlists...</div>;
+  const [isCreating, setIsCreating] = useState(false);
+
+  if (isLoading) return (
+    <div className="h-full flex flex-col bg-apple-gray">
+      <header className="h-16 flex items-center px-8 border-b border-gray-200 dark:border-white/10 bg-apple-gray/95 backdrop-blur z-10">
+        <h2 className="text-xl font-semibold text-apple-text">All Playlists</h2>
+      </header>
+      <PlaylistGridSkeleton count={8} />
+    </div>
+  );
 
   return (
     <div className="h-full flex flex-col bg-apple-gray">
@@ -133,19 +177,24 @@ export function AllPlaylistsPage() {
 
       <main className="flex-1 overflow-y-auto p-8 pb-32">
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-          
-          {/* 1. Existing Playlists */}
+
+          {/* 1. Smart Playlists */}
+          <SmartPlaylistCard type="favorites" title="Favorites" icon={Heart} gradient="from-pink-500 to-rose-600" />
+          <SmartPlaylistCard type="recently-added" title="Recently Added" icon={Sparkles} gradient="from-blue-500 to-indigo-600" />
+          <SmartPlaylistCard type="most-played" title="Most Played" icon={TrendingUp} gradient="from-orange-500 to-amber-600" />
+
+          {/* 2. Existing Playlists */}
           {playlists?.map((playlist) => (
             <PlaylistCard key={playlist.id} playlist={playlist} />
           ))}
 
           {/* 2. The "Create New" Card */}
-          <button 
+          <button
             onClick={() => setIsCreating(true)}
             className="group aspect-square rounded-lg border-2 border-dashed border-gray-300 dark:border-white/10 flex flex-col items-center justify-center hover:border-apple-accent hover:bg-apple-accent/5 transition cursor-pointer"
           >
             <div className="w-16 h-16 rounded-full bg-gray-200 dark:bg-white/5 flex items-center justify-center text-apple-subtext group-hover:text-apple-accent group-hover:bg-apple-accent/10 transition">
-               <Plus size={32} />
+              <Plus size={32} />
             </div>
             <span className="mt-4 font-medium text-apple-subtext group-hover:text-apple-accent">Create New</span>
           </button>

@@ -24,7 +24,7 @@ export function CreatePlaylistModal({ onClose }: Props) {
       queryClient.invalidateQueries({ queryKey: ['playlists'] });
       addToast(`Created playlist "${name}"`);
       onClose();
-    } catch (error) {
+    } catch {
       addToast('Failed to create playlist', 'error');
     } finally {
       setIsLoading(false);
@@ -34,7 +34,7 @@ export function CreatePlaylistModal({ onClose }: Props) {
   return (
     <div className="fixed inset-0 z-[200] bg-black/20 backdrop-blur-sm flex items-center justify-center">
       <div className="bg-white dark:bg-[#1c1c1e] w-full max-w-sm p-6 rounded-2xl shadow-2xl border border-white/10 animate-in zoom-in-95 duration-200">
-        
+
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <h3 className="font-bold text-lg text-apple-text">New Playlist</h3>
@@ -53,10 +53,10 @@ export function CreatePlaylistModal({ onClose }: Props) {
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <input 
+            <input
               autoFocus
-              type="text" 
-              placeholder="Playlist Name" 
+              type="text"
+              placeholder="Playlist Name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="w-full bg-gray-100 dark:bg-white/5 border border-transparent focus:border-apple-accent/50 rounded-lg px-4 py-3 text-apple-text outline-none transition-all placeholder:text-apple-subtext"
@@ -64,14 +64,14 @@ export function CreatePlaylistModal({ onClose }: Props) {
           </div>
 
           <div className="flex gap-3 pt-2">
-            <button 
+            <button
               type="button"
               onClick={onClose}
               className="flex-1 py-3 rounded-lg font-medium text-apple-text hover:bg-gray-100 dark:hover:bg-white/5 transition"
             >
               Cancel
             </button>
-            <button 
+            <button
               type="submit"
               disabled={!name.trim() || isLoading}
               className="flex-1 py-3 bg-apple-accent text-white rounded-lg font-medium hover:opacity-90 transition disabled:opacity-50 flex items-center justify-center gap-2"

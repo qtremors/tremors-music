@@ -6,6 +6,8 @@ import { useThemeStore } from '../stores/themeStore';
 import { useToastStore } from '../stores/toastStore';
 import { formatTime, cn } from '../lib/utils';
 import { Play, Trash2, Music, ListMusic, Shuffle } from 'lucide-react';
+import { SongListSkeleton } from '../components/Skeletons';
+import { useConfirm } from '../stores/confirmStore';
 
 export function PlaylistDetail() {
   const { id } = useParams<{ id: string }>();
@@ -48,8 +50,17 @@ export function PlaylistDetail() {
     }
   };
 
+  const confirm = useConfirm();
+
   const handleDeletePlaylist = async () => {
-    if (confirm(`Delete playlist "${playlistInfo?.name}"?`)) {
+    const confirmed = await confirm({
+      title: 'Delete Playlist',
+      message: `Are you sure you want to delete "${playlistInfo?.name}"? This action cannot be undone.`,
+      confirmText: 'Delete',
+      variant: 'danger',
+    });
+
+    if (confirmed) {
       await deletePlaylist(Number(id));
       queryClient.invalidateQueries({ queryKey: ['playlists'] });
       addToast('Playlist deleted');
@@ -107,7 +118,7 @@ export function PlaylistDetail() {
       {/* Song List Table */}
       <div className="flex-1 overflow-y-auto pb-32">
         {isLoading ? (
-          <div className="p-12 text-center text-apple-subtext">Loading songs...</div>
+          <SongListSkeleton count={8} />
         ) : songs?.length === 0 ? (
           <div className="p-12 text-center text-apple-subtext">This playlist is empty. Add songs from the Library.</div>
         ) : (

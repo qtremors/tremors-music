@@ -1,92 +1,74 @@
-import os
-from fastapi import APIRouter, HTTPException
-from fastapi.responses import FileResponse, Response
-from sqlmodel import Session
-from database import get_session, engine
-from models import Album
+from fastapi import APIRouter, Depends, Response
+from sqlmodel import Session, select
+from database import get_session
+from models import Album, Song
 from mutagen import File as MutagenFile
-from pathlib import Path
+from mutagen.id3 import ID3, APIC
+from mutagen.flac import FLAC, Picture
+from mutagen.mp4 import MP4
+import os
+import requests
+import base64
 
-router = APIRouter(prefix="/media", tags=["Media"])
+router = APIRouter(tags=["Media"])
 
-# Create .art cache directory
-ART_CACHE_DIR = Path(".art")
-ART_CACHE_DIR.mkdir(exist_ok=True)
+# 1x1 Transparent PNG pixel
+DEFAULT_COVER = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=")
 
-def get_cached_art_path(album_id: int) -> Path:
-    """Get the path to cached album art."""
-    return ART_CACHE_DIR / f"{album_id}.jpg"
-
-def extract_and_cache_album_art(album: Album) -> Path | None:
-    """Extract album art from the first song and cache it."""
-    cache_path = get_cached_art_path(album.id)
+@router.get("/covers/{album_id}")
+def get_album_cover(album_id: int, session: Session = Depends(get_session)):
+    album = session.get(Album, album_id)
+    if not album: 
+        return Response(content=DEFAULT_COVER, media_type="image/png")
     
-    # Return cached version if it exists
-    if cache_path.exists():
-        return cache_path
+    # Check first 3 songs for art
+    songs = session.exec(select(Song).where(Song.album_id == album_id).limit(3)).all()
     
-    # Find a song from this album to extract art from
-    with Session(engine) as session:
-        from models import Song
-        from sqlmodel import select
-        song = session.exec(
-            select(Song).where(Song.album_id == album.id).limit(1)
-        ).first()
-        
-        if not song or not os.path.exists(song.path):
-            return None
-        
+    for song in songs:
+        if not os.path.exists(song.path): continue
         try:
             audio = MutagenFile(song.path)
-            if not audio:
-                return None
+            if audio is None:
+                continue
             
-            # Extract cover art based on file type
-            cover_data = None
+            image_data = None
             
-            # MP3/ID3
-            if hasattr(audio, 'tags') and audio.tags:
+            # MP3 with ID3 tags
+            if isinstance(audio, ID3) or hasattr(audio, 'tags') and isinstance(audio.tags, ID3):
                 for key in audio.tags.keys():
                     if key.startswith('APIC'):
-                        cover_data = audio.tags[key].data
+                        image_data = audio.tags[key].data
                         break
             
-            # MP4/M4A
-            elif hasattr(audio, 'get') and 'covr' in audio:
-                cover_data = bytes(audio['covr'][0])
-            
             # FLAC
-            elif hasattr(audio, 'pictures') and audio.pictures:
-                cover_data = audio.pictures[0].data
+            elif isinstance(audio, FLAC) and audio.pictures:
+                image_data = audio.pictures[0].data
             
-            if cover_data:
-                # Save to cache
-                cache_path.write_bytes(cover_data)
-                return cache_path
-                
-        except Exception as e:
-            print(f"Error extracting art for album {album.id}: {e}")
-            return None
-    
-    return None
+            # MP4/M4A
+            elif isinstance(audio, MP4) and 'covr' in audio.tags:
+                image_data = bytes(audio.tags['covr'][0])
+            
+            if image_data:
+                return Response(content=image_data, media_type="image/jpeg")
+        except:
+            continue
 
-@router.get("/cover/{album_id}")
-def get_album_cover(album_id: int):
-    """Get album cover art (cached or extracted)."""
-    with Session(engine) as session:
-        album = session.get(Album, album_id)
-        if not album:
-            raise HTTPException(status_code=404, detail="Album not found")
+    # Return silent placeholder instead of 404 to fix console warnings
+    return Response(content=DEFAULT_COVER, media_type="image/png")
+
+@router.get("/lyrics/{song_id}")
+def get_lyrics(song_id: int, session: Session = Depends(get_session)):
+    song = session.get(Song, song_id)
+    if not song: return Response(status_code=404)
+    
+    params = {"track_name": song.title, "artist_name": song.artist, "album_name": song.album.title if song.album else ""}
+    try:
+        resp = requests.get("https://lrclib.net/api/get", params=params, timeout=3)
+        if resp.status_code == 200: return resp.json()
         
-        # Try to get cached or extract art
-        art_path = extract_and_cache_album_art(album)
-        
-        if art_path and art_path.exists():
-            return FileResponse(
-                art_path,
-                media_type="image/jpeg",
-                headers={"Cache-Control": "public, max-age=31536000"}  # Cache for 1 year
-            )
-        
-        # Return placeholder if no art found
-        raise HTTPException(status_code=404, detail="No cover art found")
+        search = requests.get("https://lrclib.net/api/search", params={"q": f"{song.title} {song.artist}"}, timeout=3)
+        if search.status_code == 200 and search.json():
+             return search.json()[0]
+    except: pass
+    
+    return {"plainLyrics": "No lyrics found."}

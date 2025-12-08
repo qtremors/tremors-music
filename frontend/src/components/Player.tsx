@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePlayerStore } from '../stores/playerStore';
-import { getStreamUrl, getCoverUrl } from '../lib/api';
+import { getStreamUrl, getCoverUrl, incrementPlayCount } from '../lib/api';
 import { formatTime, cn } from '../lib/utils';
 import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Disc, ChevronUp, Shuffle, Repeat, Repeat1, ListMusic } from 'lucide-react';
 import { FullScreenPlayer } from './FullScreenPlayer';
 import { QueuePanel } from './player/QueuePanel';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
+import { ArtistLink } from './ContextMenu';
 
 export function Player() {
   const {
@@ -20,11 +21,22 @@ export function Player() {
   const [isQueueOpen, setIsQueueOpen] = useState(false);
   const [previousVolume, setPreviousVolume] = useState(1);
 
+  // Track the last song we counted a play for to avoid double counting
+  const lastCountedSongRef = useRef<number | null>(null);
+
   // Keyboard shortcuts for player-specific actions
   useKeyboardShortcuts({
     onToggleFullscreen: () => setIsFullScreen(prev => !prev),
     onToggleQueue: () => setIsQueueOpen(prev => !prev),
   });
+
+  // Increment play count when a NEW song starts playing
+  useEffect(() => {
+    if (currentSong && currentSong.id !== lastCountedSongRef.current) {
+      lastCountedSongRef.current = currentSong.id;
+      incrementPlayCount(currentSong.id).catch(() => { });
+    }
+  }, [currentSong]);
 
   // Sync Play/Pause
   useEffect(() => {
@@ -32,7 +44,7 @@ export function Player() {
       if (isPlaying) audioRef.current.play().catch(() => setIsPlaying(false));
       else audioRef.current.pause();
     }
-  }, [isPlaying, currentSong]);
+  }, [isPlaying, currentSong, setIsPlaying]);
 
   // Sync Volume
   useEffect(() => {
@@ -63,6 +75,20 @@ export function Player() {
     }
   };
 
+  // Called when song ends - for "repeat one" mode, count each loop as a play
+  const handleSongEnded = () => {
+    if (repeatMode === 'one' && currentSong) {
+      // In repeat one mode, manually loop and count each play
+      incrementPlayCount(currentSong.id).catch(() => { });
+      if (audioRef.current) {
+        audioRef.current.currentTime = 0;
+        audioRef.current.play().catch(() => { });
+      }
+    } else {
+      playNext();
+    }
+  };
+
   if (!currentSong) return null;
 
   return (
@@ -79,11 +105,8 @@ export function Player() {
         <audio
           ref={audioRef}
           src={getStreamUrl(currentSong.id)}
-          loop={repeatMode === 'one'}
           onTimeUpdate={handleTimeUpdate}
-          onEnded={() => {
-            if (repeatMode !== 'one') playNext();
-          }}
+          onEnded={handleSongEnded}
           onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
         />
 
@@ -99,7 +122,9 @@ export function Player() {
           </div>
           <div className="truncate hidden sm:block">
             <h3 className="font-semibold text-apple-text truncate text-sm">{currentSong.title}</h3>
-            <p className="text-xs text-apple-subtext truncate">{currentSong.artist}</p>
+            <p className="text-xs text-apple-subtext truncate">
+              <ArtistLink name={currentSong.artist} />
+            </p>
           </div>
         </div>
 

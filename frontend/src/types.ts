@@ -88,3 +88,15 @@ export interface Song {
   // Relationship
   album?: Album;
 }
+
+export interface Artist {
+  name: string;
+  album_count: number;
+  cover_album_id?: number;
+  cover_example?: number; // Used for display
+}
+
+export interface Genre {
+  name: string;
+  song_count: number;
+}

@@ -25,6 +25,7 @@ interface PlayerState {
   toggleRepeat: () => void;
   reorderQueue: (oldIndex: number, newIndex: number) => void;
   removeFromQueue: (index: number) => void;
+  addToQueue: (song: Song) => void;
   clearQueue: () => void;
 }
 
@@ -127,13 +128,28 @@ export const usePlayerStore = create<PlayerState>()(
       },
 
       removeFromQueue: (index: number) => {
-        const { queue, currentIndex, currentSong } = get();
+        const { queue, currentSong } = get();
         const newQueue = queue.filter((_, i) => i !== index);
 
         // Update current index if needed
         const newCurrentIndex = newQueue.findIndex(s => s.id === currentSong?.id);
 
         set({ queue: newQueue, currentIndex: newCurrentIndex });
+      },
+
+      addToQueue: (song: Song) => {
+        const { queue, currentSong } = get();
+        const currentIdx = queue.findIndex(s => s.id === currentSong?.id);
+
+        // Insert after current song, or at end if no current song
+        const newQueue = [...queue];
+        if (currentIdx >= 0) {
+          newQueue.splice(currentIdx + 1, 0, song);
+        } else {
+          newQueue.push(song);
+        }
+
+        set({ queue: newQueue });
       },
 
       clearQueue: () => {

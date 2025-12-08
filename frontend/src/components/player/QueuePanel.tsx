@@ -1,8 +1,10 @@
 // Queue management panel with drag-and-drop
-import { X, GripVertical, Trash2, ListMusic } from 'lucide-react';
+import { useState } from 'react';
+import { X, GripVertical, Trash2, ListMusic, Save } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
-import { getCoverUrl } from '../../lib/api';
+import { getCoverUrl, createPlaylist, addToPlaylist } from '../../lib/api';
 import { formatTime, cn } from '../../lib/utils';
+import { useQueryClient } from '@tanstack/react-query';
 import {
     DndContext,
     closestCenter,
@@ -13,13 +15,13 @@ import {
     DragEndEvent,
 } from '@dnd-kit/core';
 import {
-    arrayMove,
     SortableContext,
     sortableKeyboardCoordinates,
     useSortable,
     verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { Song } from '../../types';
 
 interface QueuePanelProps {
     isOpen: boolean;
@@ -27,13 +29,12 @@ interface QueuePanelProps {
 }
 
 interface SortableSongItemProps {
-    song: any;
-    index: number;
+    song: Song;
     isCurrent: boolean;
     onRemove: () => void;
 }
 
-function SortableSongItem({ song, index, isCurrent, onRemove }: SortableSongItemProps) {
+function SortableSongItem({ song, isCurrent, onRemove }: SortableSongItemProps) {
     const { playSong, queue } = usePlayerStore();
     const {
         attributes,
@@ -68,7 +69,7 @@ function SortableSongItem({ song, index, isCurrent, onRemove }: SortableSongItem
             </button>
 
             <img
-                src={getCoverUrl(song.album_id)}
+                src={getCoverUrl(song.album_id ?? 0)}
                 alt={song.title}
                 className="w-10 h-10 rounded object-cover"
             />
@@ -108,7 +109,9 @@ function SortableSongItem({ song, index, isCurrent, onRemove }: SortableSongItem
 }
 
 export function QueuePanel({ isOpen, onClose }: QueuePanelProps) {
+    const queryClient = useQueryClient();
     const { queue, currentSong, currentIndex, reorderQueue, removeFromQueue, clearQueue } = usePlayerStore();
+    const [isSaving, setIsSaving] = useState(false);
 
     const sensors = useSensors(
         useSensor(PointerSensor),
@@ -128,6 +131,22 @@ export function QueuePanel({ isOpen, onClose }: QueuePanelProps) {
     };
 
     const upcomingSongs = queue.slice(currentIndex + 1);
+
+    const handleSaveAsPlaylist = async () => {
+        if (queue.length === 0) return;
+        setIsSaving(true);
+        try {
+            const name = `Queue - ${new Date().toLocaleDateString()}`;
+            const playlist = await createPlaylist(name);
+            await addToPlaylist(playlist.id, queue.map(s => s.id));
+            queryClient.invalidateQueries({ queryKey: ['playlists'] });
+            alert(`Saved as "${name}"`);
+        } catch (error) {
+            console.error('Failed to save queue as playlist:', error);
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
     return (
         <>
@@ -157,12 +176,22 @@ export function QueuePanel({ isOpen, onClose }: QueuePanelProps) {
                     </div>
                     <div className="flex items-center gap-2">
                         {queue.length > 0 && (
-                            <button
-                                onClick={clearQueue}
-                                className="text-xs text-apple-subtext hover:text-red-500 transition px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-white/5"
-                            >
-                                Clear All
-                            </button>
+                            <>
+                                <button
+                                    onClick={handleSaveAsPlaylist}
+                                    disabled={isSaving}
+                                    className="text-xs text-apple-subtext hover:text-apple-accent transition px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-white/5 flex items-center gap-1 disabled:opacity-50"
+                                    title="Save as Playlist"
+                                >
+                                    <Save size={12} /> Save
+                                </button>
+                                <button
+                                    onClick={clearQueue}
+                                    className="text-xs text-apple-subtext hover:text-red-500 transition px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-white/5"
+                                >
+                                    Clear All
+                                </button>
+                            </>
                         )}
                         <button
                             onClick={onClose}
@@ -193,7 +222,7 @@ export function QueuePanel({ isOpen, onClose }: QueuePanelProps) {
                                     </h3>
                                     <div className="flex items-center gap-3 p-3 rounded-lg bg-apple-accent/10 border border-apple-accent/20">
                                         <img
-                                            src={getCoverUrl(currentSong.album_id)}
+                                            src={getCoverUrl(currentSong.album_id ?? 0)}
                                             alt={currentSong.title}
                                             className="w-12 h-12 rounded object-cover"
                                         />
@@ -232,7 +261,6 @@ export function QueuePanel({ isOpen, onClose }: QueuePanelProps) {
                                                     <SortableSongItem
                                                         key={song.id}
                                                         song={song}
-                                                        index={currentIndex + 1 + idx}
                                                         isCurrent={false}
                                                         onRemove={() => removeFromQueue(currentIndex + 1 + idx)}
                                                     />

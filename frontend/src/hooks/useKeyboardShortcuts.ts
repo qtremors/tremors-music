@@ -8,6 +8,27 @@ interface KeyboardShortcutsOptions {
     onFocusSearch?: () => void;
 }
 
+/**
+ * Keyboard shortcuts for the music player.
+ * 
+ * Shortcuts are disabled when typing in input fields.
+ * Uses Ctrl/Cmd modifiers for letter shortcuts to avoid conflicts.
+ * 
+ * Available shortcuts:
+ * - Space: Play/Pause
+ * - Arrow Right: Next song
+ * - Arrow Left: Previous song
+ * - Shift + Arrow Right: Seek forward 10s
+ * - Shift + Arrow Left: Seek backward 10s
+ * - Arrow Up: Volume up
+ * - Arrow Down: Volume down
+ * - Ctrl/Cmd + M: Mute/Unmute
+ * - Ctrl/Cmd + F: Toggle fullscreen player
+ * - Ctrl/Cmd + L: Toggle lyrics
+ * - Ctrl/Cmd + Q: Toggle queue
+ * - Ctrl/Cmd + K or /: Focus search (works from anywhere)
+ * - Escape: Blur search / close modals
+ */
 export function useKeyboardShortcuts(options: KeyboardShortcutsOptions = {}) {
     const {
         togglePlay,
@@ -20,90 +41,118 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions = {}) {
 
     useEffect(() => {
         const handleKeyPress = (e: KeyboardEvent) => {
-            // Don't trigger shortcuts when typing in inputs
             const target = e.target as HTMLElement;
-            if (
+            const isInInput = (
                 target.tagName === 'INPUT' ||
                 target.tagName === 'TEXTAREA' ||
                 target.isContentEditable
-            ) {
-                // Allow search shortcuts even in inputs
-                if (e.key !== '/' && e.key !== 's' && e.key !== 'S') {
-                    return;
+            );
+
+            const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+            const modifierKey = isMac ? e.metaKey : e.ctrlKey;
+
+            // === GLOBAL SHORTCUTS (work even in input fields) ===
+
+            // Escape - blur input / close things
+            if (e.key === 'Escape') {
+                if (isInInput) {
+                    (target as HTMLInputElement).blur();
                 }
+                return;
             }
 
-            // Prevent default for shortcuts we handle
-            const shouldPreventDefault = [
-                ' ', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
-                'm', 'M', 'f', 'F', 'l', 'L', 'q', 'Q', 's', 'S', '/'
-            ].includes(e.key);
-
-            if (shouldPreventDefault) {
+            // Ctrl/Cmd + K or "/" - Focus search (global, works anywhere)
+            if ((modifierKey && e.key.toLowerCase() === 'k') || (e.key === '/' && !isInInput)) {
                 e.preventDefault();
+                options.onFocusSearch?.();
+                return;
             }
 
-            // Handle shortcuts
-            switch (e.key) {
-                case ' ': // Space - Play/Pause
-                    if (currentSong) togglePlay();
-                    break;
+            // === SHORTCUTS DISABLED IN INPUT FIELDS ===
+            if (isInInput) {
+                return; // Don't process any other shortcuts when typing
+            }
 
-                case 'ArrowRight': // Right Arrow
-                    if (e.shiftKey) {
-                        // Shift + Right - Seek forward 10s
-                        const audio = document.querySelector('audio');
-                        if (audio) audio.currentTime += 10;
-                    } else {
-                        // Right - Next song
-                        playNext();
-                    }
-                    break;
+            // === PLAYER SHORTCUTS (only when not typing) ===
 
-                case 'ArrowLeft': // Left Arrow
-                    if (e.shiftKey) {
-                        // Shift + Left - Seek backward 10s
-                        const audio = document.querySelector('audio');
-                        if (audio) audio.currentTime -= 10;
-                    } else {
-                        // Left - Previous song
-                        playPrev();
-                    }
-                    break;
+            // Space - Play/Pause
+            if (e.key === ' ') {
+                e.preventDefault();
+                if (currentSong) togglePlay();
+                return;
+            }
 
-                case 'ArrowUp': // Up Arrow - Volume up
-                    setVolume(Math.min(1, volume + 0.1));
-                    break;
+            // Arrow keys for navigation and seeking
+            if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                if (e.shiftKey) {
+                    // Shift + Right - Seek forward 10s
+                    const audio = document.querySelector('audio');
+                    if (audio) audio.currentTime += 10;
+                } else {
+                    // Right - Next song
+                    playNext();
+                }
+                return;
+            }
 
-                case 'ArrowDown': // Down Arrow - Volume down
-                    setVolume(Math.max(0, volume - 0.1));
-                    break;
+            if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                if (e.shiftKey) {
+                    // Shift + Left - Seek backward 10s
+                    const audio = document.querySelector('audio');
+                    if (audio) audio.currentTime -= 10;
+                } else {
+                    // Left - Previous song
+                    playPrev();
+                }
+                return;
+            }
 
-                case 'm':
-                case 'M': // M - Mute/Unmute
-                    setVolume(volume > 0 ? 0 : 1);
-                    break;
+            if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                setVolume(Math.min(1, volume + 0.1));
+                return;
+            }
 
-                case 'f':
-                case 'F': // F - Toggle fullscreen player
-                    options.onToggleFullscreen?.();
-                    break;
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                setVolume(Math.max(0, volume - 0.1));
+                return;
+            }
 
-                case 'l':
-                case 'L': // L - Toggle lyrics
-                    options.onToggleLyrics?.();
-                    break;
+            // === MODIFIER KEY SHORTCUTS ===
+            // These require Ctrl/Cmd to avoid conflicts with typing
 
-                case 'q':
-                case 'Q': // Q - Toggle queue
-                    options.onToggleQueue?.();
-                    break;
+            if (modifierKey) {
+                switch (e.key.toLowerCase()) {
+                    case 'm': // Ctrl/Cmd + M - Mute/Unmute
+                        e.preventDefault();
+                        setVolume(volume > 0 ? 0 : 1);
+                        break;
 
-                case 's':
-                case 'S':
-                case '/': // S or / - Focus search
-                    options.onFocusSearch?.();
-                    break;
+                    case 'f': // Ctrl/Cmd + F - Toggle fullscreen (if not browser's find)
+                        // Note: Some browsers reserve Ctrl+F for find
+                        // Only prevent default if we have a fullscreen handler
+                        if (options.onToggleFullscreen) {
+                            e.preventDefault();
+                            options.onToggleFullscreen();
+                        }
+                        break;
+
+                    case 'l': // Ctrl/Cmd + L - Toggle lyrics
+                        e.preventDefault();
+                        options.onToggleLyrics?.();
+                        break;
+
+                    case 'q': // Ctrl/Cmd + Q - Toggle queue
+                        // Note: Cmd+Q quits on Mac, so only on Windows/Linux
+                        if (!isMac) {
+                            e.preventDefault();
+                            options.onToggleQueue?.();
+                        }
+                        break;
+                }
             }
         };
 

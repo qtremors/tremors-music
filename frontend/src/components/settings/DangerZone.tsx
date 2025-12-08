@@ -2,19 +2,30 @@
 import { AlertTriangle } from 'lucide-react';
 import { resetLibrary } from '../../lib/api';
 import { Card } from '../common/Card';
+import { useConfirm } from '../../stores/confirmStore';
+import { useToastStore } from '../../stores/toastStore';
 
 export function DangerZone() {
+    const confirm = useConfirm();
+    const { addToast } = useToastStore();
+
     const handleReset = async () => {
-        if (!confirm("Are you sure? This will wipe all songs/albums from the database. You will need to rescan your library.")) {
-            return;
-        }
+        const confirmed = await confirm({
+            title: 'Reset Library Database',
+            message: 'This will wipe all songs and albums from the database. Your folder paths will be kept, and your actual music files will NOT be deleted. You will need to rescan your library after this.',
+            confirmText: 'Reset Library',
+            variant: 'danger',
+        });
+
+        if (!confirmed) return;
 
         try {
             await resetLibrary();
+            addToast('Library reset successfully. Please rescan.', 'success');
             window.location.reload();
         } catch (e) {
             console.error('Failed to reset library:', e);
-            alert('Failed to reset library. Please try again.');
+            addToast('Failed to reset library. Please try again.', 'error');
         }
     };
 

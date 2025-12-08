@@ -2,7 +2,7 @@ import axios from 'axios';
 import { Song, Album } from '../types';
 
 const api = axios.create({
-  baseURL: '/api', 
+  baseURL: '/api',
 });
 
 // --- SONGS ---
@@ -25,12 +25,12 @@ export const getAlbums = async (offset = 0, limit = 50) => {
   return response.data;
 };
 
-export const getAlbum = async (id: string) => {
+export const getAlbum = async (id: number) => {
   const response = await api.get<Album>(`/library/albums/${id}`);
   return response.data;
 };
 
-export const getAlbumSongs = async (id: string) => {
+export const getAlbumSongs = async (id: number) => {
   const response = await api.get<Song[]>(`/library/albums/${id}/songs`);
   return response.data;
 };
@@ -61,7 +61,49 @@ export const getArtistWork = async (name: string) => {
   return response.data;
 };
 
-// --- PLAYLISTS ---
+// --- GENRES ---
+export interface Genre {
+  name: string;
+  song_count: number;
+}
+
+export const getGenres = async () => {
+  const response = await api.get<Genre[]>('/library/genres');
+  return response.data;
+};
+
+export const getGenreSongs = async (name: string) => {
+  // Use query parameter to avoid issues with / in genre names like "R&B/Soul"
+  const response = await api.get<Song[]>('/library/genres/songs', { params: { name } });
+  return response.data;
+};
+
+// --- Smart Playlists ---
+export const getFavorites = async (limit = 100) => {
+  const response = await api.get<Song[]>('/library/smart-playlists/favorites', { params: { limit } });
+  return response.data;
+};
+
+export const getRecentlyAdded = async (limit = 50) => {
+  const response = await api.get<Song[]>('/library/smart-playlists/recently-added', { params: { limit } });
+  return response.data;
+};
+
+export const getMostPlayed = async (limit = 50) => {
+  const response = await api.get<Song[]>('/library/smart-playlists/most-played', { params: { limit } });
+  return response.data;
+};
+
+export const incrementPlayCount = async (songId: number) => {
+  const response = await api.post<{ play_count: number }>(`/library/songs/${songId}/play`);
+  return response.data;
+};
+
+export const toggleFavorite = async (songId: number) => {
+  const response = await api.post<{ rating: number; is_favorite: boolean }>(`/library/songs/${songId}/favorite`);
+  return response.data;
+};
+
 export interface Playlist {
   id: number;
   name: string;

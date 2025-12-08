@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { AnimatePresence } from 'framer-motion';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { LibraryPage } from './pages/LibraryPage';
 import { SearchPage } from './pages/SearchPage';
 import { AlbumsPage } from './pages/AlbumsPage';
@@ -12,15 +13,19 @@ import { PlaylistDetail } from './pages/PlaylistDetail';
 import { SettingsPage } from './pages/SettingsPage';
 import { Player } from './components/Player';
 import { ArtistDetail } from './pages/ArtistDetail';
+import { GenresPage } from './pages/GenresPage';
+import { GenreDetail } from './pages/GenreDetail';
 import { ToastContainer } from './components/ToastContainer';
+import { ConfirmDialog } from './components/ConfirmDialog';
 import { CreatePlaylistModal } from './components/CreatePlaylistModal';
 import { getPlaylists } from './lib/api';
 import { cn } from './lib/utils';
 import {
-  Library, Settings, Disc, Mic2, Music,
-  PlusCircle, ListMusic, Search
+  Library, Settings, Disc, Mic2, Music, Tag,
+  PlusCircle, ListMusic, Search, Heart, Sparkles, TrendingUp
 } from 'lucide-react';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { SmartPlaylistDetail } from './pages/SmartPlaylistDetail';
 
 // --- Sidebar Component ---
 function Sidebar({ setIsCreatingPlaylist }: { setIsCreatingPlaylist: (val: boolean) => void }) {
@@ -77,9 +82,12 @@ function Sidebar({ setIsCreatingPlaylist }: { setIsCreatingPlaylist: (val: boole
         <NavLink to="/artists" className={({ isActive }) => cn("w-full text-left px-3 py-2 rounded-md font-medium flex items-center gap-3 transition", isActive ? "bg-gray-200 dark:bg-white/10 text-apple-text" : "text-apple-subtext hover:text-apple-text hover:bg-white/5")}>
           <Mic2 size={18} /> Artists
         </NavLink>
+        <NavLink to="/genres" className={({ isActive }) => cn("w-full text-left px-3 py-2 rounded-md font-medium flex items-center gap-3 transition", isActive ? "bg-gray-200 dark:bg-white/10 text-apple-text" : "text-apple-subtext hover:text-apple-text hover:bg-white/5")}>
+          <Tag size={18} /> Genres
+        </NavLink>
       </nav>
 
-      <div className="mt-8 mb-2 px-3 flex items-center justify-between group flex-shrink-0">
+      <div className="mt-6 mb-2 px-3 flex items-center justify-between group flex-shrink-0">
         <NavLink to="/playlists" className={({ isActive }) => cn("text-xs font-bold uppercase tracking-wider flex-1 transition", isActive ? "text-apple-accent" : "text-apple-subtext hover:text-apple-text")}>
           Playlists
         </NavLink>
@@ -93,6 +101,23 @@ function Sidebar({ setIsCreatingPlaylist }: { setIsCreatingPlaylist: (val: boole
       </div>
 
       <div className="space-y-1 overflow-y-auto flex-1 min-h-0 no-scrollbar -mx-2 px-2">
+        {/* Smart Playlists */}
+        <NavLink to="/smart/favorites" className={({ isActive }) => cn("w-full text-left px-3 py-2 rounded-md font-medium flex items-center gap-3 transition text-sm", isActive ? "bg-gray-200 dark:bg-white/10 text-apple-text" : "text-apple-subtext hover:text-apple-text hover:bg-white/5")}>
+          <Heart size={16} className="text-pink-500 flex-shrink-0" /> Favorites
+        </NavLink>
+        <NavLink to="/smart/recently-added" className={({ isActive }) => cn("w-full text-left px-3 py-2 rounded-md font-medium flex items-center gap-3 transition text-sm", isActive ? "bg-gray-200 dark:bg-white/10 text-apple-text" : "text-apple-subtext hover:text-apple-text hover:bg-white/5")}>
+          <Sparkles size={16} className="text-green-500 flex-shrink-0" /> Recently Added
+        </NavLink>
+        <NavLink to="/smart/most-played" className={({ isActive }) => cn("w-full text-left px-3 py-2 rounded-md font-medium flex items-center gap-3 transition text-sm", isActive ? "bg-gray-200 dark:bg-white/10 text-apple-text" : "text-apple-subtext hover:text-apple-text hover:bg-white/5")}>
+          <TrendingUp size={16} className="text-purple-500 flex-shrink-0" /> Most Played
+        </NavLink>
+
+        {/* Divider if there are user playlists */}
+        {playlists && playlists.length > 0 && (
+          <div className="my-2 border-t border-gray-200 dark:border-white/10" />
+        )}
+
+        {/* User Playlists */}
         {playlists?.map(pl => (
           <NavLink
             key={pl.id}
@@ -107,8 +132,8 @@ function Sidebar({ setIsCreatingPlaylist }: { setIsCreatingPlaylist: (val: boole
           </NavLink>
         ))}
         {(!playlists || playlists.length === 0) && (
-          <div className="px-3 py-4 text-xs text-apple-subtext text-center italic">
-            No playlists yet
+          <div className="px-3 py-2 text-xs text-apple-subtext text-center italic">
+            No custom playlists yet
           </div>
         )}
       </div>
@@ -145,16 +170,20 @@ function AppContent() {
             <Route path="/albums" element={<AlbumsPage />} />
             <Route path="/albums/:id" element={<AlbumDetail />} />
             <Route path="/artists" element={<ArtistsPage />} />
+            <Route path="/genres" element={<GenresPage />} />
+            <Route path="/genres/:name" element={<GenreDetail />} />
             <Route path="/playlists" element={<AllPlaylistsPage />} />
             <Route path="/playlists/:id" element={<PlaylistDetail />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/artists/:name" element={<ArtistDetail />} />
+            <Route path="/smart/:type" element={<SmartPlaylistDetail />} />
           </Routes>
         </AnimatePresence>
       </div>
 
       <Player />
       <ToastContainer />
+      <ConfirmDialog />
       {isCreatingPlaylist && <CreatePlaylistModal onClose={() => setIsCreatingPlaylist(false)} />}
     </div>
   );
@@ -162,8 +191,10 @@ function AppContent() {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <AppContent />
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <AppContent />
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }

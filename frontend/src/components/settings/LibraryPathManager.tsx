@@ -1,10 +1,10 @@
 // Library path manager component with CRUD operations
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Plus, Trash2, Edit2, Check, X } from 'lucide-react';
 import api from '../../lib/api';
 import { Card } from '../common/Card';
-import { Button } from '../common/Button';
 import { IconButton } from '../common/IconButton';
+import { useConfirm } from '../../stores/confirmStore';
 
 interface LibraryPath {
     id: number;
@@ -16,19 +16,20 @@ export function LibraryPathManager() {
     const [newPath, setNewPath] = useState('');
     const [editingId, setEditingId] = useState<number | null>(null);
     const [editingPath, setEditingPath] = useState('');
+    const confirm = useConfirm();
 
-    useEffect(() => {
-        loadPaths();
-    }, []);
-
-    const loadPaths = async () => {
+    const loadPaths = useCallback(async () => {
         try {
             const res = await api.get<LibraryPath[]>('/library/paths');
             setPaths(res.data);
-        } catch (e) {
-            console.error('Failed to load paths:', e);
+        } catch {
+            console.error('Failed to load paths');
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        loadPaths();
+    }, [loadPaths]);
 
     const handleAddPath = async () => {
         if (!newPath.trim()) return;
@@ -36,18 +37,25 @@ export function LibraryPathManager() {
             await api.post('/library/paths', { path: newPath });
             setNewPath('');
             loadPaths();
-        } catch (e) {
+        } catch {
             alert('Invalid path or server error');
         }
     };
 
     const handleRemovePath = async (id: number) => {
-        if (!confirm('Remove this path from library?')) return;
+        const confirmed = await confirm({
+            title: 'Remove Library Path',
+            message: 'Remove this folder from your library? Your files will not be deleted.',
+            confirmText: 'Remove',
+            variant: 'warning',
+        });
+
+        if (!confirmed) return;
         try {
             await api.delete(`/library/paths/${id}`);
             loadPaths();
-        } catch (e) {
-            console.error('Failed to remove path:', e);
+        } catch {
+            console.error('Failed to remove path');
         }
     };
 
@@ -61,17 +69,15 @@ export function LibraryPathManager() {
         setEditingPath('');
     };
 
-    const saveEdit = async (id: number) => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const saveEdit = async (_id: number) => {
         if (!editingPath.trim()) return;
-        try {
-            // Note: Backend doesn't have edit endpoint yet, would need to add
-            // For now, just cancel editing
-            cancelEditing();
-            // TODO: Implement backend PATCH /library/paths/{id}
-        } catch (e) {
-            console.error('Failed to edit path:', e);
-        }
+        // Note: Backend doesn't have edit endpoint yet, would need to add
+        // For now, just cancel editing
+        cancelEditing();
+        // TODO: Implement backend PATCH /library/paths/{id}
     };
+
 
     return (
         <Card>
