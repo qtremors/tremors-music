@@ -116,7 +116,7 @@ export function FullScreenPlayer({ isOpen, onClose }: FullScreenPlayerProps) {
         >
           {/* --- Background --- */}
           <div className="absolute inset-0 bg-cover bg-center opacity-30 blur-[100px] scale-125 pointer-events-none transform-gpu"
-            style={{ backgroundImage: `url(${getCoverUrl(currentSong.album_id!, 'small')})` }}
+            style={{ backgroundImage: currentSong.album_id ? `url(${getCoverUrl(currentSong.album_id, 'small')})` : undefined }}
           />
           <div className="absolute inset-0 bg-black/40" />
 
@@ -138,7 +138,7 @@ export function FullScreenPlayer({ isOpen, onClose }: FullScreenPlayerProps) {
               {/* Flexible Art Container */}
               <div className="flex-1 min-h-0 flex items-center justify-center mb-6 w-full">
                 <div className="aspect-square h-full max-h-[50vh] w-auto rounded-xl shadow-2xl overflow-hidden border border-white/10 bg-gray-800 relative flex-shrink-0">
-                  <img src={getCoverUrl(currentSong.album_id!, 'full')} className="w-full h-full object-cover" />
+                  {currentSong.album_id && <img src={getCoverUrl(currentSong.album_id, 'full')} className="w-full h-full object-cover" />}
                 </div>
               </div>
 

@@ -274,7 +274,7 @@ def toggle_favorite(song_id: int, session: Session = Depends(get_session)):
         song.rating = 5
     session.add(song)
     session.commit()
-    return {"rating": song.rating}
+    return {"rating": song.rating, "is_favorite": song.rating == 5}
 
 
 # --- SONGS ---
@@ -454,7 +454,10 @@ def get_albums(offset: int = 0, limit: int = 50, session: Session = Depends(get_
 
 @router.get("/albums/{album_id}", response_model=Album)
 def get_album_details(album_id: int, session: Session = Depends(get_session)):
-    return session.get(Album, album_id)
+    album = session.get(Album, album_id)
+    if not album:
+        raise HTTPException(status_code=404, detail="Album not found")
+    return album
 
 @router.get("/albums/{album_id}/songs", response_model=List[SongListItem])
 def get_album_songs(album_id: int, session: Session = Depends(get_session)):

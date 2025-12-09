@@ -336,6 +336,6 @@ def scan_directory(root_directory: str):
             
     except Exception as e:
         print(f"Critical Scanner Error: {e}")
-        scanner_progress.update(errors=1, error_msg=f"Critical: {str(e)}")
+        scanner_progress.update(errors=1, error_file="scanner", error_msg=f"Critical: {e}")
     finally:
         scanner_progress.finish()

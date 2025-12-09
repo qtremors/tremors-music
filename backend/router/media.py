@@ -50,7 +50,7 @@ def get_album_cover(album_id: int, size: str = "small", session: Session = Depen
                 continue
             
             # MP3 with ID3 tags
-            if isinstance(audio, ID3) or hasattr(audio, 'tags') and isinstance(audio.tags, ID3):
+            if isinstance(audio, ID3) or (hasattr(audio, 'tags') and isinstance(audio.tags, ID3)):
                 for key in audio.tags.keys():
                     if key.startswith('APIC'):
                         image_data = audio.tags[key].data

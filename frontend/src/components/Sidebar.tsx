@@ -24,7 +24,7 @@ export function Sidebar({ setIsCreatingPlaylist }: { setIsCreatingPlaylist: (val
             }
         }, 300);
         return () => clearTimeout(timer);
-    }, [search, navigate]);
+    }, [search, navigate, location.pathname]);
 
     useEffect(() => {
         if (location.pathname !== '/search') {
