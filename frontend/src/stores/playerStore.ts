@@ -168,7 +168,7 @@ export const usePlayerStore = create<PlayerState>()(
         try {
           // Check if the current song still exists in the backend
           await getSong(currentSong.id);
-        } catch (_error) {
+        } catch {
           console.warn('Current song not found in backend (likely db reset). Clearing player state.');
           set({
             queue: [],

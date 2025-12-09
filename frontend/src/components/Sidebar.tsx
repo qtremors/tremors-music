@@ -26,6 +26,7 @@ export function Sidebar({ setIsCreatingPlaylist }: { setIsCreatingPlaylist: (val
         return () => clearTimeout(timer);
     }, [search, navigate, location.pathname]);
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional: clear search when navigating away from search page
     useEffect(() => {
         if (location.pathname !== '/search') {
             setSearch('');

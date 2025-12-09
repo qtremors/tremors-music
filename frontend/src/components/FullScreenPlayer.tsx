@@ -27,24 +27,18 @@ export function FullScreenPlayer({ isOpen, onClose }: FullScreenPlayerProps) {
   const lastSongIdRef = useRef<number | null>(null);
 
   // Only fetch lyrics & album info when song changes
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional: reset state on song change, fetch data async
   useEffect(() => {
     if (!currentSong) return;
 
-    // 1. Fetch Lyrics
-    // Always check/fetch to ensure fresh state, but avoid redundant network calls if we already have it
+    // Reset state when song changes
     if (lastSongIdRef.current !== currentSong.id) {
       setLyrics(null);
       setAlbumName(null);
       lastSongIdRef.current = currentSong.id;
-    } else if (lyrics) {
-      // If we already have lyrics, we might still need album name?
-      // Let's just proceed to checking album name.
     }
 
     let isMounted = true;
-
-    // Clear previous lyrics immediately to show loading state if changing songs
-    if (!lyrics && lastSongIdRef.current !== currentSong.id) setLyrics(null);
 
     // Fetch Lyrics
     getLyrics(currentSong.id)
@@ -55,13 +49,13 @@ export function FullScreenPlayer({ isOpen, onClose }: FullScreenPlayerProps) {
         if (isMounted) setLyrics(null);
       });
 
-    // 2. Fetch Album Name (if missing from song object)
+    // Fetch Album Name (if missing from song object)
     if (currentSong.album?.title) {
-      setAlbumName(currentSong.album.title);
+      if (isMounted) setAlbumName(currentSong.album.title);
     } else if (currentSong.album_id) {
       getAlbum(currentSong.album_id)
         .then(album => {
-          if (isMounted && album && album.title) {
+          if (isMounted && album?.title) {
             setAlbumName(album.title);
           }
         })
@@ -71,6 +65,7 @@ export function FullScreenPlayer({ isOpen, onClose }: FullScreenPlayerProps) {
     }
 
     return () => { isMounted = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Only re-run when song ID changes
   }, [currentSong?.id]);
 
   useEffect(() => {

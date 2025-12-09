@@ -51,11 +51,13 @@ export function SyncedLyrics({ lyrics, currentTime, className }: SyncedLyricsPro
     const parsedLines = useMemo(() => parseLRC(lyrics), [lyrics]);
 
     // Reset index when song (lyrics) changes
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional: reset on prop change
     useEffect(() => {
         setCurrentLineIndex(-1);
     }, [lyrics]);
 
     // Calculate active index logic (Same efficient search as before)
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional: sync state with external time source
     useEffect(() => {
         if (parsedLines.length === 0) return;
 

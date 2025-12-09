@@ -24,6 +24,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     setPaths(Array.isArray(res.data) ? res.data : []);
   }, []);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional: fetch data on mount
   useEffect(() => {
     loadPaths();
   }, [loadPaths]);

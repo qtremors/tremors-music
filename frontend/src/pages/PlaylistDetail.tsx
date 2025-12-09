@@ -155,6 +155,7 @@ export function PlaylistDetail() {
   const [items, setItems] = useState<PlaylistItem[]>([]);
 
   // Sync server data to local state
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional: sync optimistic state with server data
   useEffect(() => {
     if (serverSongs) {
       setItems(serverSongs.map((s, i) => ({ ...s, uniqueId: `${s.id}-${i}` })));
@@ -202,17 +203,17 @@ export function PlaylistDetail() {
   };
 
   const handlePlay = (song: PlaylistItem) => {
-    // Strip uniqueId for player
-    const { uniqueId: _uniqueId, ...rawSong } = song;
-    // Set queue to current visible order
-    const queue = items.map(({ uniqueId: _uid, ...s }) => s);
+    // Strip uniqueId for player - using rest spread to omit it
+    const { uniqueId: _, ...rawSong } = song;
+    // Set queue to current visible order (omitting uniqueId from each)
+    const queue = items.map(({ uniqueId: __, ...s }) => s);
     setQueue(queue);
     playSong(rawSong);
   };
 
   const handlePlayAll = () => {
     if (items.length > 0) {
-      const queue = items.map(({ uniqueId: _uid, ...s }) => s);
+      const queue = items.map(({ uniqueId: _, ...s }) => s);
       setQueue(queue);
       usePlayerStore.setState({ isShuffle: false });
       playSong(queue[0]);
@@ -221,7 +222,7 @@ export function PlaylistDetail() {
 
   const handleShuffleAll = () => {
     if (items.length > 0) {
-      const queue = items.map(({ uniqueId: _uid, ...s }) => s);
+      const queue = items.map(({ uniqueId: _, ...s }) => s);
       const shuffled = shuffleArray(queue);
       usePlayerStore.setState({ isShuffle: true, queue: shuffled, originalQueue: queue });
       playSong(shuffled[0]);

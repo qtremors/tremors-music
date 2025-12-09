@@ -102,6 +102,7 @@ export function ScannerControl() {
         }
     }, [stopPolling]);
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional: check status on mount
     useEffect(() => {
         checkScanStatus();
         return () => {

@@ -27,6 +27,7 @@ export function LibraryPathManager() {
         }
     }, []);
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional: fetch data on mount
     useEffect(() => {
         loadPaths();
     }, [loadPaths]);
