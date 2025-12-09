@@ -1,7 +1,8 @@
 import sqlite3
 import os
+from database import get_app_dir
 
-DB_PATH = "music.db"
+DB_PATH = os.path.join(get_app_dir(), "music.db")
 
 def migrate():
     if not os.path.exists(DB_PATH):

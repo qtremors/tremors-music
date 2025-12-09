@@ -59,18 +59,14 @@ export function FullScreenPlayer({ isOpen, onClose }: FullScreenPlayerProps) {
     if (currentSong.album?.title) {
       setAlbumName(currentSong.album.title);
     } else if (currentSong.album_id) {
-      console.log('Fetching album info for ID:', currentSong.album_id);
       getAlbum(currentSong.album_id)
         .then(album => {
-          console.log('Fetched album full object:', album);
-          console.log('Fetched album title:', album?.title);
           if (isMounted && album && album.title) {
-            console.log('Setting albumName to:', album.title);
             setAlbumName(album.title);
           }
         })
-        .catch((err) => {
-          console.error('Failed to fetch album:', err);
+        .catch(() => {
+          // Album fetch failed - non-critical
         });
     }
 

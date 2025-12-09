@@ -52,15 +52,11 @@ function ArtistCard({ artist }: { artist: Artist }) {
   const handleShuffleArtist = async (e: React.MouseEvent) => {
     e.stopPropagation();
     try {
+      const { shuffleArray } = await import('../lib/utils');
       const workItems = await getArtistWork(artist.name);
       const allSongs = workItems.flatMap(w => w.songs);
       if (allSongs.length > 0) {
-        // Fisher-Yates shuffle
-        const shuffled = [...allSongs];
-        for (let i = shuffled.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-        }
+        const shuffled = shuffleArray(allSongs);
         setQueue(shuffled);
         usePlayerStore.setState({ isShuffle: true, originalQueue: allSongs });
         playSong(shuffled[0]);

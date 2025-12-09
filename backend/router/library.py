@@ -1,7 +1,8 @@
 from typing import List, Dict, Any
 from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException
-from sqlmodel import Session, select, func, or_, delete, col
+from sqlmodel import Session, select, func, or_, delete
 from sqlalchemy import case
+from pydantic import BaseModel
 from database import get_session
 from models import Song, Album, LibraryPath, SongListItem, AlbumRead
 from scanner import scan_directory
@@ -10,6 +11,10 @@ import re
 import urllib.parse
 
 router = APIRouter(prefix="/library", tags=["Library"])
+
+# Pydantic model for path updates
+class PathUpdate(BaseModel):
+    path: str
 
 # --- PATH MANAGEMENT ---
 @router.get("/paths", response_model=List[LibraryPath])
@@ -36,17 +41,17 @@ def remove_path(path_id: int, session: Session = Depends(get_session)):
     return {"message": "Path removed"}
 
 @router.patch("/paths/{path_id}")
-def update_library_path(path_id: int, new_path: str, session: Session = Depends(get_session)):
+def update_library_path(path_id: int, path_update: PathUpdate, session: Session = Depends(get_session)):
     """Update an existing library path."""
     path_obj = session.get(LibraryPath, path_id)
     if not path_obj:
         raise HTTPException(status_code=404, detail="Path not found")
-    if not os.path.exists(new_path):
+    if not os.path.exists(path_update.path):
         raise HTTPException(status_code=400, detail="Directory does not exist")
-    existing = session.exec(select(LibraryPath).where(LibraryPath.path == new_path)).first()
+    existing = session.exec(select(LibraryPath).where(LibraryPath.path == path_update.path)).first()
     if existing and existing.id != path_id:
         raise HTTPException(status_code=400, detail="Path already exists in library")
-    path_obj.path = new_path
+    path_obj.path = path_update.path
     session.commit()
     session.refresh(path_obj)
     return path_obj
@@ -294,7 +299,7 @@ def get_songs(
     if sort_by == "artist":
         sort_col = func.lower(Song.artist)
     elif sort_by == "album":
-        sort_col = func.lower(Song.album_id) 
+        sort_col = Song.album_id  # album_id is integer, can't use lower() 
     elif sort_by == "year":
         sort_col = Song.year
     elif sort_by == "file_size":

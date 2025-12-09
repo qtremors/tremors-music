@@ -101,7 +101,8 @@ def remove_song_from_playlist(playlist_id: int, song_id: int, session: Session =
 def reorder_playlist(playlist_id: int, payload: PlaylistReorder, session: Session = Depends(get_session)):
     """Reorder playlist based on a list of song IDs."""
     pl = session.get(Playlist, playlist_id)
-    if not pl: raise HTTPException(404, "Playlist not found")
+    if not pl:
+        raise HTTPException(404, "Playlist not found")
     
     links = session.exec(
         select(PlaylistSong).where(PlaylistSong.playlist_id == playlist_id)
@@ -116,11 +117,18 @@ def reorder_playlist(playlist_id: int, payload: PlaylistReorder, session: Sessio
     
     current_order = 0
     for song_id in payload.song_ids:
-        if song_id in link_map and link_map[song_id]:
+        if link_map.get(song_id):
             link = link_map[song_id].pop(0)
             link.order = current_order
             session.add(link)
             current_order += 1
-            
+    
+    # Append any remaining links not in the new order
+    for remaining_links in link_map.values():
+        for link in remaining_links:
+            link.order = current_order
+            session.add(link)
+            current_order += 1
+
     session.commit()
     return {"message": "Playlist reordered"}
