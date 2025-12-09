@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { usePlayerStore } from '../stores/playerStore';
-import { getCoverUrl, getLyrics } from '../lib/api';
+import { getCoverUrl, getLyrics, getAlbum } from '../lib/api';
 import { cn, formatTime } from '../lib/utils';
 import { ChevronDown, Play, Pause, SkipBack, SkipForward, MessageSquare, Volume2, Repeat, Shuffle, Repeat1 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { SyncedLyrics } from './player/SyncedLyrics';
 
 interface FullScreenPlayerProps {
   isOpen: boolean;
@@ -11,47 +13,100 @@ interface FullScreenPlayerProps {
 }
 
 export function FullScreenPlayer({ isOpen, onClose }: FullScreenPlayerProps) {
-  const { 
-    currentSong, isPlaying, togglePlay, playNext, playPrev, 
-    volume, setVolume, repeatMode, toggleRepeat, isShuffle, toggleShuffle 
+  const navigate = useNavigate();
+  const {
+    currentSong, isPlaying, togglePlay, playNext, playPrev,
+    volume, setVolume, repeatMode, toggleRepeat, isShuffle, toggleShuffle
   } = usePlayerStore();
-  
+
   const [lyrics, setLyrics] = useState<{ plainLyrics?: string, syncedLyrics?: string } | null>(null);
-  const [showLyrics, setShowLyrics] = useState(false); 
+  const [albumName, setAlbumName] = useState<string | null>(null);
+  const [showLyrics, setShowLyrics] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const lastSongIdRef = useRef<number | null>(null);
 
+  // Only fetch lyrics & album info when song changes
   useEffect(() => {
-    if (isOpen && currentSong) {
+    if (!currentSong) return;
+
+    // 1. Fetch Lyrics
+    // Always check/fetch to ensure fresh state, but avoid redundant network calls if we already have it
+    if (lastSongIdRef.current !== currentSong.id) {
       setLyrics(null);
-      getLyrics(currentSong.id).then(setLyrics).catch(() => setLyrics(null));
+      setAlbumName(null);
+      lastSongIdRef.current = currentSong.id;
+    } else if (lyrics) {
+      // If we already have lyrics, we might still need album name?
+      // Let's just proceed to checking album name.
     }
-  }, [currentSong?.id, isOpen]);
+
+    let isMounted = true;
+
+    // Clear previous lyrics immediately to show loading state if changing songs
+    if (!lyrics && lastSongIdRef.current !== currentSong.id) setLyrics(null);
+
+    // Fetch Lyrics
+    getLyrics(currentSong.id)
+      .then(data => {
+        if (isMounted) setLyrics(data);
+      })
+      .catch(() => {
+        if (isMounted) setLyrics(null);
+      });
+
+    // 2. Fetch Album Name (if missing from song object)
+    if (currentSong.album?.title) {
+      setAlbumName(currentSong.album.title);
+    } else if (currentSong.album_id) {
+      console.log('Fetching album info for ID:', currentSong.album_id);
+      getAlbum(currentSong.album_id)
+        .then(album => {
+          console.log('Fetched album full object:', album);
+          console.log('Fetched album title:', album?.title);
+          if (isMounted && album && album.title) {
+            console.log('Setting albumName to:', album.title);
+            setAlbumName(album.title);
+          }
+        })
+        .catch((err) => {
+          console.error('Failed to fetch album:', err);
+        });
+    }
+
+    return () => { isMounted = false; };
+  }, [currentSong?.id]);
 
   useEffect(() => {
-    let interval: any;
+    let interval: number;
     if (isOpen) {
-      interval = setInterval(() => {
+      // Use window.setInterval instead of NodeJS
+      interval = window.setInterval(() => {
         const audio = document.querySelector('audio');
         if (audio) {
+          // Only update if changed significantly to reduce renders? 
+          // Actually 100ms is fine, but let's ensure we don't leak
           setCurrentTime(audio.currentTime);
           setDuration(audio.duration || 0);
         }
-      }, 200);
+      }, 100);
     }
     return () => clearInterval(interval);
   }, [isOpen]);
 
-  const handleSeek = (e: any) => {
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = Number(e.target.value);
     const audio = document.querySelector('audio');
     if (audio) {
-        audio.currentTime = val;
-        setCurrentTime(val);
+      audio.currentTime = val;
+      setCurrentTime(val);
     }
   };
 
   if (!currentSong) return null;
+
+  const lyricsContent = lyrics?.syncedLyrics || lyrics?.plainLyrics;
+  const hasSyncedLyrics = !!lyrics?.syncedLyrics;
 
   return (
     <AnimatePresence>
@@ -65,130 +120,173 @@ export function FullScreenPlayer({ isOpen, onClose }: FullScreenPlayerProps) {
         >
           {/* --- Background --- */}
           <div className="absolute inset-0 bg-cover bg-center opacity-30 blur-[100px] scale-125 pointer-events-none transform-gpu"
-             style={{ backgroundImage: `url(${getCoverUrl(currentSong.album_id!)})` }}
+            style={{ backgroundImage: `url(${getCoverUrl(currentSong.album_id!, 'small')})` }}
           />
           <div className="absolute inset-0 bg-black/40" />
 
           {/* --- Header --- */}
           <div className="relative z-20 flex justify-between items-center px-8 py-6 flex-shrink-0">
-             <button onClick={onClose} className="p-2 bg-white/10 rounded-full hover:bg-white/20"><ChevronDown size={20} /></button>
-             <div className="w-10" />
+            <button onClick={onClose} className="p-2 bg-white/10 rounded-full hover:bg-white/20"><ChevronDown size={20} /></button>
+            <div className="w-10" />
           </div>
 
           {/* --- Main Content --- */}
           <div className="relative z-10 flex-1 min-h-0 w-full max-w-screen-2xl mx-auto px-8 pb-8 flex gap-12 items-center">
-            
+
             {/* LEFT COLUMN: Art & Controls */}
             <div className={cn(
-                "flex flex-col justify-center h-full transition-all duration-500 ease-in-out mx-auto",
-                showLyrics ? "w-1/2 max-w-xl" : "w-full max-w-lg"
+              "flex flex-col justify-center h-full transition-all duration-500 ease-in-out mx-auto",
+              showLyrics ? "w-1/2 max-w-xl" : "w-full max-w-lg"
             )}>
-               
-               {/* Flexible Art Container */}
-               <div className="flex-1 min-h-0 flex items-center justify-center mb-6 w-full">
-                  <div className="aspect-square h-full max-h-[50vh] w-auto rounded-xl shadow-2xl overflow-hidden border border-white/10 bg-gray-800 relative flex-shrink-0">
-                    <img src={getCoverUrl(currentSong.album_id!)} className="w-full h-full object-cover" />
+
+              {/* Flexible Art Container */}
+              <div className="flex-1 min-h-0 flex items-center justify-center mb-6 w-full">
+                <div className="aspect-square h-full max-h-[50vh] w-auto rounded-xl shadow-2xl overflow-hidden border border-white/10 bg-gray-800 relative flex-shrink-0">
+                  <img src={getCoverUrl(currentSong.album_id!, 'full')} className="w-full h-full object-cover" />
+                </div>
+              </div>
+
+              {/* Metadata & Controls */}
+              <div className="flex-shrink-0 space-y-6 w-full">
+                <div className={showLyrics ? "text-left" : "text-center"}>
+                  <h2 className="text-3xl font-bold truncate leading-tight mb-2 text-white drop-shadow-md">
+                    {currentSong.title}
+                  </h2>
+
+                  <div className="space-y-1">
+                    <p
+                      className="text-xl text-apple-accent truncate font-medium cursor-pointer transition-all opacity-90 hover:opacity-100"
+                      onClick={() => {
+                        onClose();
+                        navigate(`/artists/${encodeURIComponent(currentSong.artist)}`);
+                      }}
+                    >
+                      {currentSong.artist}
+                    </p>
+                    {currentSong.album_id && (albumName || currentSong.album?.title) && (
+                      <p
+                        className="text-lg text-white/50 truncate cursor-pointer hover:text-white transition-all"
+                        onClick={() => {
+                          onClose();
+                          navigate(`/albums/${currentSong.album_id}`);
+                        }}
+                      >
+                        {albumName || currentSong.album?.title}
+                      </p>
+                    )}
                   </div>
-               </div>
 
-               {/* Metadata & Controls */}
-               <div className="flex-shrink-0 space-y-6 w-full">
-                   <div className={showLyrics ? "text-left" : "text-center"}>
-                      <h2 className="text-2xl font-bold truncate leading-tight">{currentSong.title}</h2>
-                      <p className="text-lg text-white/60 truncate mt-1">{currentSong.artist}</p>
-                      
-                      {/* TECH BADGES */}
-                      <div className={cn("flex gap-2 mt-3 opacity-60", showLyrics ? "justify-start" : "justify-center")}>
-                         <span className="px-1.5 py-0.5 rounded border border-white/30 text-[9px] font-bold uppercase tracking-widest text-white/80">
-                            {currentSong.format?.toUpperCase() || 'MP3'}
-                         </span>
-                         {currentSong.bitrate && (
-                            <span className="px-1.5 py-0.5 rounded border border-white/30 text-[9px] font-bold uppercase tracking-widest text-white/80">
-                                {currentSong.bitrate} kbps
-                            </span>
-                         )}
-                         {currentSong.sample_rate && (
-                            <span className="px-1.5 py-0.5 rounded border border-white/30 text-[9px] font-bold uppercase tracking-widest text-white/80">
-                                {(currentSong.sample_rate / 1000).toFixed(1)} kHz
-                            </span>
-                         )}
-                      </div>
-                   </div>
+                  {/* TECH BADGES */}
+                  <div className={cn("flex gap-2 mt-4 opacity-60", showLyrics ? "justify-start" : "justify-center")}>
+                    <span className="px-1.5 py-0.5 rounded border border-white/30 text-[9px] font-bold uppercase tracking-widest text-white/80">
+                      {currentSong.format?.toUpperCase() || 'MP3'}
+                    </span>
+                    {currentSong.bitrate && (
+                      <span className="px-1.5 py-0.5 rounded border border-white/30 text-[9px] font-bold uppercase tracking-widest text-white/80">
+                        {currentSong.bitrate} kbps
+                      </span>
+                    )}
+                    {currentSong.sample_rate && (
+                      <span className="px-1.5 py-0.5 rounded border border-white/30 text-[9px] font-bold uppercase tracking-widest text-white/80">
+                        {(currentSong.sample_rate / 1000).toFixed(1)} kHz
+                      </span>
+                    )}
+                  </div>
+                </div>
 
-                   {/* Progress */}
-                   <div className="space-y-2">
-                      <div className="relative w-full h-1 bg-white/20 rounded-full group cursor-pointer">
-                         <div 
-                           className="absolute top-0 left-0 h-full bg-white rounded-full" 
-                           style={{ width: `${(currentTime / duration) * 100}%` }}
-                         />
-                         <input 
-                           type="range" min={0} max={duration || 100} value={currentTime} 
-                           onChange={handleSeek}
-                           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                         />
-                      </div>
-                      <div className="flex justify-between text-xs font-medium text-white/50">
-                         <span>{formatTime(currentTime)}</span>
-                         <span>{formatTime(duration)}</span>
-                      </div>
-                   </div>
+                {/* Progress */}
+                <div className="space-y-2">
+                  <div className="relative w-full h-1 bg-white/20 rounded-full group cursor-pointer">
+                    <div
+                      className="absolute top-0 left-0 h-full w-full bg-white rounded-full origin-left will-change-transform"
+                      style={{ transform: `scaleX(${duration ? currentTime / duration : 0})` }}
+                    />
+                    <input
+                      type="range" min={0} max={duration || 100} value={currentTime}
+                      onChange={handleSeek}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    />
+                  </div>
+                  <div className="flex justify-between text-xs font-medium text-white/50">
+                    <span>{formatTime(currentTime)}</span>
+                    <span>{formatTime(duration)}</span>
+                  </div>
+                </div>
 
-                   {/* Controls */}
-                   <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 w-24">
-                          <Volume2 size={16} className="text-white/60" />
-                          <input 
-                            type="range" min={0} max={1} step={0.01} value={volume} 
-                            onChange={e => setVolume(parseFloat(e.target.value))}
-                            className="w-16 h-1 bg-white/20 rounded-lg appearance-none cursor-pointer accent-white"
-                          />
-                      </div>
+                {/* Controls */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 w-24">
+                    <Volume2 size={16} className="text-white/60" />
+                    <input
+                      type="range" min={0} max={1} step={0.01} value={volume}
+                      onChange={e => setVolume(parseFloat(e.target.value))}
+                      className="w-16 h-1 bg-white/20 rounded-lg appearance-none cursor-pointer accent-white"
+                    />
+                  </div>
 
-                      <div className="flex items-center gap-8">
-                         <button onClick={playPrev} className="hover:text-white/80 transition hover:scale-105"><SkipBack size={28} fill="currentColor" /></button>
-                         <button onClick={togglePlay} className="hover:scale-105 transition">
-                           {isPlaying ? <Pause size={48} fill="currentColor" /> : <Play size={48} fill="currentColor" />}
-                         </button>
-                         <button onClick={playNext} className="hover:text-white/80 transition hover:scale-105"><SkipForward size={28} fill="currentColor" /></button>
-                      </div>
+                  <div className="flex items-center gap-8">
+                    <button onClick={playPrev} className="hover:text-white/80 transition hover:scale-105"><SkipBack size={28} fill="currentColor" /></button>
+                    <button onClick={togglePlay} className="hover:scale-105 transition">
+                      {isPlaying ? <Pause size={48} fill="currentColor" /> : <Play size={48} fill="currentColor" />}
+                    </button>
+                    <button onClick={playNext} className="hover:text-white/80 transition hover:scale-105"><SkipForward size={28} fill="currentColor" /></button>
+                  </div>
 
-                      <div className="flex items-center gap-3 w-24 justify-end">
-                          <button onClick={toggleShuffle} className={cn("transition", isShuffle ? "text-apple-accent" : "text-white/40 hover:text-white")}>
-                              <Shuffle size={18} />
-                          </button>
-                          <button onClick={toggleRepeat} className={cn("transition relative", repeatMode !== 'off' ? "text-apple-accent" : "text-white/40 hover:text-white")}>
-                              {repeatMode === 'one' ? <Repeat1 size={18} /> : <Repeat size={18} />}
-                              {repeatMode !== 'off' && <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-0.5 h-0.5 bg-current rounded-full" />}
-                          </button>
-                          <button 
-                            onClick={() => setShowLyrics(!showLyrics)} 
-                            className={cn("transition p-1.5 rounded-md", showLyrics ? "bg-white/20 text-white" : "text-white/40 hover:text-white")}
-                          >
-                              <MessageSquare size={18} fill={showLyrics ? "currentColor" : "none"} />
-                          </button>
-                      </div>
-                   </div>
-               </div>
+                  <div className="flex items-center gap-3 w-24 justify-end">
+                    <button onClick={toggleShuffle} className={cn("transition", isShuffle ? "text-apple-accent" : "text-white/40 hover:text-white")}>
+                      <Shuffle size={18} />
+                    </button>
+                    <button onClick={toggleRepeat} className={cn("transition relative", repeatMode !== 'off' ? "text-apple-accent" : "text-white/40 hover:text-white")}>
+                      {repeatMode === 'one' ? <Repeat1 size={18} /> : <Repeat size={18} />}
+                      {repeatMode !== 'off' && <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-0.5 h-0.5 bg-current rounded-full" />}
+                    </button>
+                    <button
+                      onClick={() => setShowLyrics(!showLyrics)}
+                      className={cn("transition p-1.5 rounded-md", showLyrics ? "bg-white/20 text-white" : "text-white/40 hover:text-white")}
+                    >
+                      <MessageSquare size={18} fill={showLyrics ? "currentColor" : "none"} />
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* RIGHT COLUMN: Lyrics */}
             {showLyrics && (
               <div className="hidden md:flex flex-col w-1/2 h-full animate-in fade-in slide-in-from-right-10 duration-300">
-                 <h3 className="text-xs font-bold text-white/40 uppercase tracking-widest mb-6 flex-shrink-0">Lyrics</h3>
-                 <div className="flex-1 overflow-y-auto no-scrollbar mask-image-linear-gradient">
-                    {lyrics?.syncedLyrics || lyrics?.plainLyrics ? (
-                        <div className="whitespace-pre-wrap text-2xl font-bold text-white/80 leading-relaxed space-y-8 pb-20">
-                            {lyrics.syncedLyrics || lyrics.plainLyrics}
-                        </div>
+                <div className="flex items-center justify-between mb-6 flex-shrink-0">
+                  <h3 className="text-xs font-bold text-white/40 uppercase tracking-widest">Lyrics</h3>
+                  {hasSyncedLyrics && (
+                    <span className="text-xs text-apple-accent font-semibold uppercase tracking-wider">Synced</span>
+                  )}
+                </div>
+                <div className="flex-1 overflow-hidden">
+                  {lyricsContent ? (
+                    hasSyncedLyrics ? (
+                      <SyncedLyrics
+                        lyrics={lyricsContent}
+                        currentTime={currentTime}
+                        className="h-full"
+                      />
                     ) : (
-                        <div className="flex items-center justify-center h-full text-white/30 italic text-xl font-medium">
-                            Searching for lyrics...
+                      <div className="h-full overflow-y-auto no-scrollbar">
+                        <div className="whitespace-pre-wrap text-2xl font-bold text-white/80 leading-relaxed space-y-8 pb-20">
+                          {lyricsContent}
                         </div>
-                    )}
-                 </div>
+                      </div>
+                    )
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full text-white/30 space-y-4">
+                      <span className="italic text-xl font-medium">
+                        {lyrics === null ? "Searching for lyrics..." : "No lyrics available"}
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
+
+
 
           </div>
         </motion.div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { X, Plus, Trash2, RefreshCw, Moon, Sun } from 'lucide-react';
 import api from '../lib/api';
 import { useThemeStore } from '../stores/themeStore';
@@ -16,17 +16,17 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   const [paths, setPaths] = useState<LibraryPath[]>([]);
   const [newPath, setNewPath] = useState('');
   const [isScanning, setIsScanning] = useState(false);
-  
+
   const { theme, setTheme, accentColor, setAccentColor } = useThemeStore();
+
+  const loadPaths = useCallback(async () => {
+    const res = await api.get<LibraryPath[]>('/library/paths');
+    setPaths(Array.isArray(res.data) ? res.data : []);
+  }, []);
 
   useEffect(() => {
     loadPaths();
-  }, []);
-
-  const loadPaths = async () => {
-    const res = await api.get<LibraryPath[]>('/library/paths');
-    setPaths(res.data);
-  };
+  }, [loadPaths]);
 
   const handleAddPath = async () => {
     if (!newPath) return;
@@ -34,7 +34,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
       await api.post('/library/paths', { path: newPath });
       setNewPath('');
       loadPaths();
-    } catch (e) {
+    } catch {
       alert('Invalid path or server error');
     }
   };
@@ -71,17 +71,17 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         {/* --- Appearance Section --- */}
         <div className="mb-8">
           <h3 className="text-sm font-semibold text-apple-subtext uppercase mb-3">Appearance</h3>
-          
+
           <div className="flex items-center justify-between mb-4">
             <span className="text-apple-text">Theme</span>
             <div className="bg-gray-200 dark:bg-gray-700 rounded-full p-1 flex gap-1">
-              <button 
+              <button
                 onClick={() => setTheme('light')}
                 className={`p-2 rounded-full transition ${theme === 'light' ? 'bg-white shadow-sm' : 'text-gray-500'}`}
               >
                 <Sun size={16} />
               </button>
-              <button 
+              <button
                 onClick={() => setTheme('dark')}
                 className={`p-2 rounded-full transition ${theme === 'dark' ? 'bg-gray-600 text-white shadow-sm' : 'text-gray-500'}`}
               >
@@ -105,7 +105,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         {/* --- Library Section --- */}
         <div>
           <h3 className="text-sm font-semibold text-apple-subtext uppercase mb-3">Library Paths</h3>
-          
+
           <div className="space-y-2 mb-4 max-h-40 overflow-y-auto">
             {paths.map(p => (
               <div key={p.id} className="flex items-center justify-between bg-gray-100 dark:bg-gray-800 p-3 rounded-lg">
@@ -118,8 +118,8 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
           </div>
 
           <div className="flex gap-2 mb-6">
-            <input 
-              type="text" 
+            <input
+              type="text"
               value={newPath}
               onChange={(e) => setNewPath(e.target.value)}
               placeholder="Paste folder path..."
@@ -130,7 +130,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
             </button>
           </div>
 
-          <button 
+          <button
             onClick={handleRescan}
             disabled={isScanning}
             className="w-full py-3 bg-apple-accent text-white rounded-lg font-medium flex items-center justify-center gap-2 hover:opacity-90 transition"

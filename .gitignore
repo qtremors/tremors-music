@@ -7,8 +7,9 @@
 # Python cache and bytecode
 __pycache__/
 *.pyc
+*.pyo
 
-# Virtual Environment (as seen in your image)
+# Virtual Environment
 .venv/
 backend/.venv/
 
@@ -16,14 +17,29 @@ backend/.venv/
 *.db
 backend/music.db
 
-# Version management (optional, often local specific)
+# Version management
 .python-version
+
+# PyInstaller
+backend/dist/
+backend/build/
+*.spec.bak
+
+# Logs
+logs/
+*.log
+
+# Artwork cache
+.art/
+backend/.art/
+backend/backend/
+backend/covers/
 
 # --- Frontend (Node/JS) ---
 # Dependencies
 node_modules/
 
-# Build outputs (standard for frontend builds)
+# Build outputs
 dist/
 build/
 
@@ -31,3 +47,18 @@ build/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# ESLint reports
+eslint-report.json
+
+# --- Test Data ---
+music_test/
+
+# --- Temp Files ---
+*_output.txt
+
+# --- IDE ---
+.idea/
+.vscode/
+*.swp
+*.swo

@@ -25,7 +25,7 @@ It is designed to be high-performance, handling libraries of 5,000+ songs with z
     
 - **Database:** SQLite + SQLModel (ORM)
     
-- **Metadata:** `tinytag` (Fastest pure-python tag reader)
+- **Metadata:** `mutagen` (Robust audio metadata handling)
     
 
 ### Frontend (The Interface)
@@ -75,8 +75,9 @@ tremors-music/
 │   │   │   ├── FullScreenPlayer.tsx    # Immersive 'Now Playing' view (Art, Controls, Lyrics).
 │   │   │   ├── Player.tsx              # The persistent mini-player bar and audio controls.
 │   │   │   ├── SettingsModal.tsx       # Modal for managing library paths and UI settings.
+│   │   │   ├── Sidebar.tsx             # Main navigation sidebar (Library, Playlists).
 │   │   │   ├── SongList.tsx            # Virtualized list component for displaying songs.
-│   │   │   ├── SquigglyProgress.tsx    # Custom progress bar component (removed for standard bar later).
+
 │   │   │   └── ToastContainer.tsx      # Component for displaying non-blocking notifications.
 │   │   ├── lib/                       # Utility functions
 │   │   │   ├── api.ts                  # Axios client setup and API fetching functions (React Query integration).

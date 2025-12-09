@@ -5,7 +5,7 @@ interface ThemeState {
   theme: 'light' | 'dark';
   accentColor: string;
   showSongListArt: boolean;
-  
+
   setTheme: (theme: 'light' | 'dark') => void;
   setAccentColor: (rgb: string) => void;
   setShowSongListArt: (show: boolean) => void;

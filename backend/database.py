@@ -1,7 +1,20 @@
+import os
+import sys
 from sqlmodel import SQLModel, create_engine, Session
 
-# 1. Define the database file name
-sqlite_file_name = "music.db"
+# Get the directory where the executable/script is located
+def get_app_dir():
+    """Get the application directory (where the executable is located)."""
+    if getattr(sys, 'frozen', False):
+        # Running as compiled executable
+        return os.path.dirname(sys.executable)
+    else:
+        # Running as script (development)
+        return os.path.dirname(os.path.abspath(__file__))
+
+# 1. Define the database file path (in app directory)
+app_dir = get_app_dir()
+sqlite_file_name = os.path.join(app_dir, "music.db")
 sqlite_url = f"sqlite:///{sqlite_file_name}"
 
 # 2. Create the engine

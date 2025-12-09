@@ -19,7 +19,7 @@ export const useToastStore = create<ToastState>((set) => ({
   addToast: (message, type = 'success') => {
     const id = Math.random().toString(36).substring(2, 9);
     set((state) => ({ toasts: [...state.toasts, { id, message, type }] }));
-    
+
     // Auto dismiss after 3 seconds
     setTimeout(() => {
       set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) }));

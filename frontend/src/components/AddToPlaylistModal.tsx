@@ -25,7 +25,7 @@ export function AddToPlaylistModal({ songIds, onClose }: Props) {
       queryClient.invalidateQueries({ queryKey: ['playlists'] });
       addToast(`Created "${pl.name}" and added songs`); // <--- Toast
       onClose();
-    } catch (e) {
+    } catch {
       addToast('Failed to create playlist', 'error');
     }
   };
@@ -35,7 +35,7 @@ export function AddToPlaylistModal({ songIds, onClose }: Props) {
       await addToPlaylist(playlistId, songIds);
       addToast('Songs added to playlist'); // <--- Toast
       onClose();
-    } catch (e) {
+    } catch {
       addToast('Failed to add songs', 'error');
     }
   };
@@ -50,13 +50,13 @@ export function AddToPlaylistModal({ songIds, onClose }: Props) {
 
         <div className="max-h-60 overflow-y-auto space-y-1 mb-4 no-scrollbar">
           {playlists?.map(pl => (
-            <button 
+            <button
               key={pl.id}
               onClick={() => handleAdd(pl.id)}
               className="w-full text-left p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 text-apple-text flex items-center gap-3 transition"
             >
               <span className="w-8 h-8 bg-gray-100 dark:bg-white/10 rounded-md flex items-center justify-center text-apple-accent">
-                 <ListMusic size={16} />
+                <ListMusic size={16} />
               </span>
               <span className="truncate font-medium text-sm">{pl.name}</span>
             </button>
@@ -65,28 +65,28 @@ export function AddToPlaylistModal({ songIds, onClose }: Props) {
         </div>
 
         <div className="pt-4 border-t border-gray-200 dark:border-white/10">
-           {!isCreating ? (
-             <button 
-               onClick={() => setIsCreating(true)}
-               className="w-full py-2.5 bg-apple-accent/10 text-apple-accent rounded-lg font-medium hover:bg-apple-accent/20 transition flex items-center justify-center gap-2 text-sm"
-             >
-               <Plus size={16} /> New Playlist
-             </button>
-           ) : (
-             <div className="flex gap-2">
-               <input 
-                 autoFocus
-                 className="flex-1 bg-gray-100 dark:bg-white/10 rounded-lg px-3 py-2 outline-none text-apple-text text-sm focus:ring-1 focus:ring-apple-accent"
-                 placeholder="Playlist Name..."
-                 value={newPlaylistName}
-                 onChange={e => setNewPlaylistName(e.target.value)}
-                 onKeyDown={e => e.key === 'Enter' && handleCreate()}
-               />
-               <button onClick={handleCreate} className="p-2 bg-apple-accent text-white rounded-lg hover:opacity-90">
-                 <Check size={18} />
-               </button>
-             </div>
-           )}
+          {!isCreating ? (
+            <button
+              onClick={() => setIsCreating(true)}
+              className="w-full py-2.5 bg-apple-accent/10 text-apple-accent rounded-lg font-medium hover:bg-apple-accent/20 transition flex items-center justify-center gap-2 text-sm"
+            >
+              <Plus size={16} /> New Playlist
+            </button>
+          ) : (
+            <div className="flex gap-2">
+              <input
+                autoFocus
+                className="flex-1 bg-gray-100 dark:bg-white/10 rounded-lg px-3 py-2 outline-none text-apple-text text-sm focus:ring-1 focus:ring-apple-accent"
+                placeholder="Playlist Name..."
+                value={newPlaylistName}
+                onChange={e => setNewPlaylistName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleCreate()}
+              />
+              <button onClick={handleCreate} className="p-2 bg-apple-accent text-white rounded-lg hover:opacity-90">
+                <Check size={18} />
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
