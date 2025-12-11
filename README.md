@@ -42,8 +42,9 @@
 ### Web Version (Browser)
 | Resource | Usage |
 |----------|-------|
-| **Browser Tab** | ~700-1400 MB |
-| **Full-screen Player** | ~900-1400 MB |
+| **Browser Tab** | ~700-900 MB |
+| **Full-screen Player** | ~900-1100 MB |
+| **With Lyrics Panel** | ~1200-1500 MB |
 | **Terminal/IDE** | ~200-500 MB |
 
 > **Note:** The desktop app uses ~70% less memory than the web version.
