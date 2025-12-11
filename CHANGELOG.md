@@ -6,21 +6,22 @@ All notable changes to Tremors Music are documented in this file.
 
 ## [2.0.0] - 2025-12-11
 
-### 🎉 Unified Monorepo Release
+### 🎉 Major Release: Native Desktop App
 
-This release consolidates the web and desktop versions into a single monorepo, combining the best features and optimizations from both.
+This release introduces a native desktop application using Tauri, delivering significant performance improvements while maintaining the same beautiful interface.
 
 ### ✨ Added
-- **Unified Codebase** - Single repository powers both web and desktop versions
-- **Tauri Desktop App** - Native Windows app with 70% less memory usage than web
-- **Proper Branding** - Custom icons, installer with Tremors Music branding
+- **Native Desktop App** - Windows installer with Tauri (Rust shell)
+- **Python Sidecar** - Backend bundled as standalone executable
+- **70% Less Memory** - Desktop uses ~100-200MB vs ~900-1400MB for web
+- **Proper Branding** - Custom icons, NSIS installer
 
 ### 🔧 Changed
-- **Project Structure** - Reorganized into `backend/`, `frontend/`, and `tauri/` folders
-- **Build System** - Single `npm run build` command creates full installer
-- **Documentation** - Combined and updated README, ARCHITECTURE, CONTRIBUTING
+- **Project Structure** - Reorganized into `backend/`, `frontend/`, `tauri/`
+- **Build System** - Single `npm run build` creates Windows installer
+- **Documentation** - Comprehensive README, ARCHITECTURE, CONTRIBUTING
 
-### 📦 Build Outputs
+### 📦 New Build Outputs
 - `Tremors Music_2.0.0_x64-setup.exe` (NSIS installer)
 - `Tremors Music_2.0.0_x64_en-US.msi` (MSI installer)
 
@@ -44,51 +45,13 @@ This release consolidates the web and desktop versions into a single monorepo, c
 
 ---
 
-## [1.0.0 Beta] - 2025-12-08
-
-### 🎉 First Desktop Release
-
-#### 🎵 Core Features
-- Full playback controls (play, pause, seek, volume)
-- Queue management with drag-and-drop
-- Shuffle & Repeat modes
-- Now Playing full-screen view
-
-#### 📚 Library
-- Smart scanning with ID3 tag extraction
-- Multi-format support (MP3, FLAC, M4A, WAV, OGG, WMA, AAC)
-- Instant search across library
-- Persistent sort preferences
-
-#### 🎨 Browse Views
-- Songs (virtualized, 5000+ supported)
-- Albums (grid with cover art)
-- Artists (aggregated from albums)
-- Genres (colorful cards)
-
-#### 📝 Playlists
-- Custom playlists with drag-to-reorder
-- Smart playlists: Favorites, Recently Added, Most Played
-
-#### 🎤 Lyrics
-- Synced LRC lyrics with line highlighting
-- Extracted from embedded tags
-- Database caching for instant access
-
-#### 🎨 UI/UX
-- Dark/Light mode
-- 6 accent color options
-- Apple Music-inspired glassmorphism
-- Context menus throughout
-
----
-
-## [1.0.0] - Initial Web Release
+## [1.0.0] - Initial Release
 
 ### Added
-- Core music player with playback controls
-- Library scanning and ID3 tag extraction
-- Songs, Albums, Artists, Playlists views
-- Glassmorphism UI with Dark/Light mode
-- Full Screen Player with large artwork
-- Python FastAPI + React frontend
+- **Core Music Player** - Play, pause, seek, shuffle, repeat
+- **Library Management** - Local file scanning, ID3 tag extraction
+- **Multi-format Support** - MP3, FLAC, M4A, WAV, OGG, WMA, AAC
+- **Smart Playlists** - Favorites, Recently Added, Most Played
+- **Synced Lyrics** - Time-synchronized LRC format display
+- **Glassmorphism UI** - Apple Music-inspired design
+- **Full-screen Player** - Immersive view with large artwork

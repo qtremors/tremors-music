@@ -25,31 +25,39 @@
 - 🎵 **Multi-format** - MP3, FLAC, M4A, WAV, OGG, WMA, AAC
 - 📝 **Synced Lyrics** - Display embedded synchronized lyrics
 - 🎛️ **Smart Playlists** - Favorites, Recently Added, Most Played
+- 🖥️ **Desktop App** - Native Windows app with Tauri
 
 ---
 
-## � System Impact
+## 💻 System Requirements
 
-### Desktop App (Tauri)
+### Desktop App (Tauri) - Recommended
 | Resource | Usage |
 |----------|-------|
 | **Disk Space** | ~150 MB |
-| **Memory** | ~100-200 MB during normal use |
+| **Memory (App)** | ~100-200 MB |
 | **CPU** | Minimal (spikes during library scan) |
 | **Network** | None (completely offline) |
 
 ### Web Version (Browser)
 | Resource | Usage |
 |----------|-------|
-| **Idling** | ~700 MB |
-| **Full Screen Player** | ~900-1400 MB |
-| **With Lyrics** | ~1200 MB |
+| **Browser Tab** | ~700-1400 MB |
+| **Full-screen Player** | ~900-1400 MB |
 
-> The desktop app uses ~70% less memory than the web version thanks to Tauri's lightweight Rust shell.
+### Development Environment
+| Resource | Usage |
+|----------|-------|
+| **Terminal/IDE** | ~200-500 MB |
+| **Backend (uvicorn)** | ~50-100 MB |
+| **Frontend (Vite)** | ~100-200 MB |
+| **Tauri Dev** | ~300-500 MB |
+
+> **Note:** The desktop app uses ~70% less memory than the web version.
 
 ---
 
-## �🚀 Quick Start
+## 🚀 Quick Start
 
 ### Prerequisites
 
@@ -102,7 +110,7 @@ npm run dev
 
 Open **http://localhost:5173**
 
-### 3. Running the Tauri Version (Desktop)
+### 3. Running the Desktop Version (Tauri)
 
 ```bash
 # Terminal 1 - Backend
