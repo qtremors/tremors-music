@@ -44,14 +44,7 @@
 |----------|-------|
 | **Browser Tab** | ~700-1400 MB |
 | **Full-screen Player** | ~900-1400 MB |
-
-### Development Environment
-| Resource | Usage |
-|----------|-------|
 | **Terminal/IDE** | ~200-500 MB |
-| **Backend (uvicorn)** | ~50-100 MB |
-| **Frontend (Vite)** | ~100-200 MB |
-| **Tauri Dev** | ~300-500 MB |
 
 > **Note:** The desktop app uses ~70% less memory than the web version.
 
