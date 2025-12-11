@@ -1,0 +1,52 @@
+Tremors Music - Source Available License
+
+Copyright (c) 2024 Tremors
+
+## Terms and Conditions
+
+### 1. Definitions
+
+"Software" refers to Tremors Music, including all source code, documentation, 
+and associated files in this repository.
+
+"Personal Use" means use by an individual for non-commercial purposes.
+
+### 2. Permitted Uses
+
+You are permitted to:
+
+- ✅ View and study the source code
+- ✅ Download and use compiled binaries for personal, non-commercial use
+- ✅ Fork the repository to submit improvements via pull requests
+- ✅ Modify the code for personal use only
+
+### 3. Prohibited Uses
+
+You may NOT:
+
+- ❌ Redistribute the Software or modified versions as your own product
+- ❌ Use the Software for commercial purposes without written permission
+- ❌ Remove or modify this license or copyright notices
+- ❌ Distribute compiled binaries without permission
+- ❌ Use the Tremors Music name or branding for derivative works
+
+### 4. Contributions
+
+By submitting a pull request, you grant Tremors a perpetual, worldwide, 
+non-exclusive, royalty-free license to use, modify, and distribute your 
+contribution as part of the Software.
+
+### 5. No Warranty
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+### 6. Contact
+
+For commercial licensing inquiries or permissions beyond this license:
+GitHub: https://github.com/qtremors/tremors-music

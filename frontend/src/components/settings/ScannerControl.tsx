@@ -1,0 +1,324 @@
+// Scanner control with progress tracking and error details
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { RefreshCw, StopCircle, CheckCircle, AlertCircle, Clock, ChevronDown, ChevronUp } from 'lucide-react';
+import api from '../../lib/api';
+import { Card } from '../common/Card';
+import { Button } from '../common/Button';
+
+interface ErrorDetail {
+    file_path: string;
+    error_message: string;
+    timestamp: string;
+}
+
+interface LastScanResult {
+    files_processed: number;
+    songs_added: number;
+    errors: number;
+    duration: number;
+    completed_at: string;
+    error_details: ErrorDetail[];
+}
+
+interface ScanProgress {
+    is_scanning: boolean;
+    files_processed: number;
+    songs_added: number;
+    errors: number;
+    current_file: string;
+    start_time: number | null;
+    error_details: ErrorDetail[];
+    last_scan_result: LastScanResult | null;
+}
+
+export function ScannerControl() {
+    const queryClient = useQueryClient();
+    const [isScanning, setIsScanning] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [showErrors, setShowErrors] = useState(false);
+    const [elapsedTime, setElapsedTime] = useState('0s');
+    const [progress, setProgress] = useState<ScanProgress>({
+        is_scanning: false,
+        files_processed: 0,
+        songs_added: 0,
+        errors: 0,
+        current_file: '',
+        start_time: null,
+        error_details: [],
+        last_scan_result: null
+    });
+    const pollInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+    const timeInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+
+    const stopPolling = useCallback(() => {
+        if (pollInterval.current) {
+            clearInterval(pollInterval.current);
+            pollInterval.current = null;
+
+            // Invalidate all library-related caches so new data appears
+            queryClient.invalidateQueries({ queryKey: ['songs'] });
+            queryClient.invalidateQueries({ queryKey: ['albums'] });
+            queryClient.invalidateQueries({ queryKey: ['albums-all'] });
+            queryClient.invalidateQueries({ queryKey: ['artists'] });
+            queryClient.invalidateQueries({ queryKey: ['genres'] });
+            queryClient.invalidateQueries({ queryKey: ['smart-playlist'] });
+        }
+        if (timeInterval.current) {
+            clearInterval(timeInterval.current);
+            timeInterval.current = null;
+        }
+    }, [queryClient]);
+
+    const checkScanStatus = useCallback(async () => {
+        try {
+            const res = await api.get<ScanProgress>('/library/scan/status');
+            const data = res.data;
+            if (!data) return; // Guard against null/undefined response
+
+            // Ensure error_details is always an array
+            const safeData: ScanProgress = {
+                ...data,
+                error_details: Array.isArray(data.error_details) ? data.error_details : [],
+                last_scan_result: data.last_scan_result ? {
+                    ...data.last_scan_result,
+                    error_details: Array.isArray(data.last_scan_result.error_details)
+                        ? data.last_scan_result.error_details
+                        : []
+                } : null
+            };
+
+            setProgress(safeData);
+            setIsScanning(safeData.is_scanning);
+            setError(null);
+
+            if (!safeData.is_scanning && pollInterval.current) {
+                stopPolling();
+            }
+        } catch (e: unknown) {
+            console.error('Failed to get scan status:', e);
+            const errorMessage = e instanceof Error ? e.message : 'Failed to connect to scanner';
+            setError(errorMessage);
+        }
+    }, [stopPolling]);
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional: check status on mount
+    useEffect(() => {
+        checkScanStatus();
+        return () => {
+            if (pollInterval.current) {
+                clearInterval(pollInterval.current);
+            }
+            if (timeInterval.current) {
+                clearInterval(timeInterval.current);
+            }
+        };
+    }, [checkScanStatus]);
+
+    const startPolling = useCallback(() => {
+        pollInterval.current = setInterval(checkScanStatus, 500);
+        // Update elapsed time every second
+        timeInterval.current = setInterval(() => {
+            setProgress(prev => {
+                if (!prev.start_time) return prev;
+                const elapsed = Math.floor((Date.now() - prev.start_time) / 1000);
+                const mins = Math.floor(elapsed / 60);
+                const secs = elapsed % 60;
+                setElapsedTime(mins > 0 ? `${mins}m ${secs}s` : `${secs}s`);
+                return prev;
+            });
+        }, 1000);
+    }, [checkScanStatus]);
+
+    const handleStartScan = async () => {
+        try {
+            setError(null);
+            setIsScanning(true);
+            setElapsedTime('0s');
+            await api.post('/library/scan');
+            startPolling();
+        } catch (e: unknown) {
+            console.error('Failed to start scan:', e);
+            const errorMessage = e instanceof Error ? e.message : 'Failed to start scan';
+            setError(errorMessage);
+            setIsScanning(false);
+        }
+    };
+
+    const handleStopScan = async () => {
+        try {
+            stopPolling();
+            setIsScanning(false);
+        } catch (e) {
+            console.error('Failed to stop scan:', e);
+        }
+    };
+
+    const getElapsedTime = () => elapsedTime;
+
+    const formatDuration = (seconds: number) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+    };
+
+    const formatDate = (isoString: string) => {
+        const date = new Date(isoString);
+        return date.toLocaleString();
+    };
+
+    const getFileName = (path: string) => {
+        return path.split(/[/\\]/).pop() || path;
+    };
+
+    return (
+        <Card className="mt-4">
+            <div className="space-y-4">
+                <h4 className="text-sm font-semibold text-apple-subtext uppercase tracking-wider">Library Scanner</h4>
+
+                {error && (
+                    <div className="flex items-start gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                        <AlertCircle size={18} className="text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                            <div className="text-sm font-medium text-red-700 dark:text-red-300">Scan Error</div>
+                            <div className="text-xs text-red-600 dark:text-red-400 mt-1">{error}</div>
+                        </div>
+                    </div>
+                )}
+
+                {!isScanning ? (
+                    <Button onClick={handleStartScan} variant="primary" className="w-full" disabled={isScanning}>
+                        <RefreshCw size={18} />
+                        Scan All Folders
+                    </Button>
+                ) : (
+                    <Button onClick={handleStopScan} variant="danger" className="w-full">
+                        <StopCircle size={18} />
+                        Stop Scanning
+                    </Button>
+                )}
+
+                {isScanning && (
+                    <div className="space-y-3 p-4 bg-gray-50 dark:bg-black/20 rounded-lg border border-gray-200 dark:border-white/10">
+                        <div className="space-y-1">
+                            <div className="flex justify-between text-xs text-apple-subtext">
+                                <span>Scanning...</span>
+                                <span>{getElapsedTime()}</span>
+                            </div>
+                            <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                <div className="h-full bg-apple-accent transition-all duration-300 rounded-full" style={{ width: '100%' }}>
+                                    <div className="h-full w-full bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse" />
+                                </div>
+                            </div>
+                        </div>
+
+                        {progress.current_file && (
+                            <div className="text-xs text-apple-subtext truncate">
+                                📁 {getFileName(progress.current_file)}
+                            </div>
+                        )}
+
+                        <div className="grid grid-cols-3 gap-3 pt-2 border-t border-gray-200 dark:border-white/10">
+                            <div className="text-center">
+                                <div className="text-lg font-semibold text-apple-text">{progress.files_processed}</div>
+                                <div className="text-xs text-apple-subtext">Files</div>
+                            </div>
+                            <div className="text-center">
+                                <div className="text-lg font-semibold text-green-500">{progress.songs_added}</div>
+                                <div className="text-xs text-apple-subtext">Added</div>
+                            </div>
+                            <div className="text-center">
+                                <div className="text-lg font-semibold text-red-500">{progress.errors}</div>
+                                <div className="text-xs text-apple-subtext">Errors</div>
+                            </div>
+                        </div>
+
+                        {/* Live error list during scan */}
+                        {progress.error_details.length > 0 && (
+                            <div className="pt-2 border-t border-gray-200 dark:border-white/10">
+                                <button
+                                    onClick={() => setShowErrors(!showErrors)}
+                                    className="flex items-center justify-between w-full text-xs font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition"
+                                >
+                                    <span>{progress.error_details.length} file{progress.error_details.length !== 1 ? 's' : ''} failed</span>
+                                    {showErrors ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                </button>
+                                {showErrors && (
+                                    <div className="mt-2 max-h-40 overflow-y-auto space-y-1">
+                                        {progress.error_details.map((err, idx) => (
+                                            <div key={idx} className="text-xs p-2 bg-red-50 dark:bg-red-900/10 rounded border border-red-200 dark:border-red-800">
+                                                <div className="font-medium text-red-700 dark:text-red-300 truncate" title={err.file_path}>
+                                                    {getFileName(err.file_path)}
+                                                </div>
+                                                <div className="text-red-600 dark:text-red-400 mt-0.5">{err.error_message}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {!isScanning && progress.last_scan_result && (
+                    <div className="space-y-2 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <CheckCircle size={18} className="text-blue-600 dark:text-blue-400" />
+                                <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">Last Scan Complete</span>
+                            </div>
+                            <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
+                                <Clock size={12} />
+                                {formatDuration(progress.last_scan_result.duration)}
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2 mt-2">
+                            <div className="text-center p-2 bg-white/50 dark:bg-black/20 rounded">
+                                <div className="text-sm font-bold text-blue-700 dark:text-blue-300">{progress.last_scan_result.files_processed}</div>
+                                <div className="text-xs text-blue-600 dark:text-blue-400">Files</div>
+                            </div>
+                            <div className="text-center p-2 bg-white/50 dark:bg-black/20 rounded">
+                                <div className="text-sm font-bold text-green-600 dark:text-green-400">{progress.last_scan_result.songs_added}</div>
+                                <div className="text-xs text-blue-600 dark:text-blue-400">Added</div>
+                            </div>
+                            <div className="text-center p-2 bg-white/50 dark:bg-black/20 rounded">
+                                <div className="text-sm font-bold text-red-600 dark:text-red-400">{progress.last_scan_result.errors}</div>
+                                <div className="text-xs text-blue-600 dark:text-blue-400">Errors</div>
+                            </div>
+                        </div>
+
+                        <div className="text-xs text-blue-600 dark:text-blue-400 mt-2">
+                            Completed: {formatDate(progress.last_scan_result.completed_at)}
+                        </div>
+
+                        {/* Error details from last scan */}
+                        {progress.last_scan_result.error_details && progress.last_scan_result.error_details.length > 0 && (
+                            <div className="mt-3 pt-3 border-t border-blue-200 dark:border-blue-700">
+                                <button
+                                    onClick={() => setShowErrors(!showErrors)}
+                                    className="flex items-center justify-between w-full text-xs font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition"
+                                >
+                                    <span>View {progress.last_scan_result.error_details.length} failed file{progress.last_scan_result.error_details.length !== 1 ? 's' : ''}</span>
+                                    {showErrors ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                </button>
+                                {showErrors && (
+                                    <div className="mt-2 max-h-60 overflow-y-auto space-y-1">
+                                        {progress.last_scan_result.error_details.map((err, idx) => (
+                                            <div key={idx} className="text-xs p-2 bg-red-50 dark:bg-red-900/10 rounded border border-red-200 dark:border-red-800">
+                                                <div className="font-medium text-red-700 dark:text-red-300 truncate" title={err.file_path}>
+                                                    📄 {getFileName(err.file_path)}
+                                                </div>
+                                                <div className="text-red-600 dark:text-red-400 mt-0.5">{err.error_message}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+        </Card>
+    );
+}

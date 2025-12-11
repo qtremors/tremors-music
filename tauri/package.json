@@ -1,0 +1,13 @@
+{
+    "name": "tremors-music-tauri",
+    "version": "1.0.0",
+    "scripts": {
+        "build:backend": "node scripts/build-backend.mjs",
+        "tauri": "tauri",
+        "dev": "tauri dev",
+        "build": "npm run build:backend && tauri build"
+    },
+    "devDependencies": {
+        "@tauri-apps/cli": "^2.9.5"
+    }
+}

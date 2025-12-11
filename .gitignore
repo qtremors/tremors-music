@@ -1,0 +1,55 @@
+# --- Global ---
+.DS_Store
+.env
+.env.local
+
+# --- Backend (Python) ---
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+*.db
+.python-version
+
+# PyInstaller build artifacts
+backend/dist/
+backend/build/
+*.spec.bak
+
+# Logs
+logs/
+*.log
+
+# Artwork cache
+backend/covers/
+
+# --- Frontend (Node/JS) ---
+node_modules/
+dist/
+build/
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ESLint
+eslint-report.json
+
+# --- Tauri ---
+tauri/node_modules/
+tauri/src-tauri/target/
+tauri/src-tauri/binaries/*.exe
+tauri/src-tauri/gen/
+
+# --- Test Data ---
+music_test/
+
+# --- Temp Files ---
+*_output.txt
+
+# --- IDE ---
+.idea/
+.vscode/
+*.swp
+*.swo
