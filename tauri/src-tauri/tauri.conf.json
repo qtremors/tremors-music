@@ -36,9 +36,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "externalBin": [
-      "binaries/tremorsmusic"
-    ],
+
     "windows": {
       "nsis": {
         "installMode": "currentUser",
