@@ -13,7 +13,7 @@ This release introduces a native desktop application using Tauri, delivering sig
 ### ✨ Added
 - **Native Desktop App** - Windows installer with Tauri (Rust shell)
 - **Python Sidecar** - Backend bundled as standalone executable
-- **70% Less Memory** - Desktop uses ~100-200MB vs ~900-1400MB for web
+- **70% Less Memory** - Desktop uses ~100-500MB vs ~700-1500MB for web
 - **Proper Branding** - Custom icons, NSIS installer
 
 ### 🔧 Changed
