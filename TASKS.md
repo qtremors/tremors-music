@@ -1,73 +1,70 @@
-# Tasks & Known Issues
+# Tremors Music - Tasks
 
-Tracking known issues and planned improvements for Tremors Music v2.0.0.
+> **Project:** Tremors Music  
+> **Version:** 2.0.1  
+> **Last Updated:** 2026-01-13
+
+---
 
 ---
 
 ## ✅ Completed (v2.0.0)
 
+### Infrastructure
 - [x] Consolidated web and desktop repos into monorepo
 - [x] Fresh Tauri initialization with proper branding
 - [x] Build system working (npm run build)
 - [x] Memory optimizations from web version
 - [x] Custom icons and installer branding
-- [x] Updated all documentation
+- [x] Updated all core documentation
 
 ---
 
-## 🔴 High Priority
+## 🚧 In Progress
 
-### Bugs
-
-- [ ] **ScannerControl.tsx**: `handleStopScan()` (line 148) doesn't call backend `/scan/stop` endpoint - only stops polling. The backend endpoint exists at `/library/scan/stop` but is never called.
-- [ ] **api.ts**: `getPlaylistSongs(id: string)` uses `string` type (line 145) while all other ID parameters use `number` - type inconsistency that could cause issues.
-- [ ] **FullScreenPlayer.tsx**: "Searching for lyrics..." shown indefinitely if fetch fails (line 272). The `lyrics` state is only set to `null` on song change, not on fetch failure.
-
-### Logic Issues
-
-- [ ] **playerStore.ts**: `addToQueue()` (lines 142-158) inserts after current song in `queue` but appends to end of `originalQueue` - causes desync when shuffle is toggled.
+### Documentation
+- [/] Align project documentation with new Templates
+  - [x] Update README.md
+  - [x] Create DEVELOPMENT.md (merged ARCHITECTURE/CONTRIBUTING)
+  - [x] Align TASKS.md
+  - [/] Align CHANGELOG.md
+  - [ ] Replace LICENSE with LICENSE.md
 
 ---
 
-## 🟠 Medium Priority
+## 📋 To Do
 
-### Incomplete Features
+### High Priority
+- [ ] **Queue Shuffle Logic**
+  - Fix logic where `addToQueue()` inserts after current song in `queue` but appends to end of `originalQueue`, causing desync when shuffle is toggled.
+- [ ] **Type Consistency**
+  - Standardize `getPlaylistSongs(id: string)` to use `number` ID parameters to match the rest of the API.
 
-- [ ] **LibraryPathManager.tsx**: `saveEdit()` (line 74) is a no-op with TODO comment, but backend endpoint `PATCH /library/paths/{id}` already exists (library.py:43-57). Just needs to call `api.patch()`.
+### Medium Priority
+- [ ] **Library Path Management**
+  - Implement `saveEdit()` in `LibraryPathManager.tsx` to call existing backend `PATCH /library/paths/{id}` endpoint.
+- [ ] **UI Polish**
+  - Replace `alert()` calls in `QueuePanel.tsx`, `SettingsModal.tsx`, and `LibraryPathManager.tsx` with toast notifications.
+  - Add guard against NaN in `Player.tsx` progress bar calculation.
 
-### UI/UX Issues
-
-- [ ] **Player.tsx**: Add guard against NaN in progress bar calculation (`duration > 0 ? ... : 0`) - currently could show NaN% width.
-- [ ] Replace 3 `alert()` calls with toast notifications:
-  - `QueuePanel.tsx:143` - "Saved as..." message
-  - `SettingsModal.tsx:39` - "Invalid path or server error"
-  - `LibraryPathManager.tsx:42` - "Invalid path or server error"
-
----
-
-## 🟡 Low Priority / Nice to Have
-
-### Accessibility
-
-- [ ] Add meaningful `alt` attributes to cover images. Currently:
-  - `FullScreenPlayer.tsx:136` - no alt
-  - `SongList.tsx:210` - no alt
-  - `SearchPage.tsx:244` - empty alt=""
-
-### Code Quality
-
-- [ ] **scanner.py**: Use regex for synced lyrics detection instead of simple `[` and `]` heuristic (lines 235, 285). Current check could false-positive on songs with brackets in lyrics.
-- [ ] Extract `app_dir` resolution to shared utility (duplicated in `main.py` and potentially elsewhere).
-- [ ] Remove unused variable `_id` in `saveEdit()` function (LibraryPathManager.tsx:74).
-
-### Minor Improvements
-
-- [ ] Deduplicate Fisher-Yates shuffle implementation (exists in both `playerStore.ts` and `utils.ts`).
-- [ ] Consider adding loading skeleton for lyrics panel in FullScreenPlayer.
+### Low Priority
+- [ ] **Accessibility**
+  - Add meaningful `alt` attributes to cover images in `FullScreenPlayer.tsx`, `SongList.tsx`, and `SearchPage.tsx`.
+- [ ] **Code Quality**
+  - Deduplicate Fisher-Yates shuffle implementation between `playerStore.ts` and `utils.ts`.
+  - Extract `app_dir` resolution to a shared utility.
 
 ---
 
-## 📝 Future Features
+## 🐛 Bug Fixes
+
+- [ ] **Scanner Control:** `handleStopScan()` in `ScannerControl.tsx` correctly calls backend `/library/scan/stop`.
+- [ ] **Lyrics Display:** Fix "Searching for lyrics..." shown indefinitely if fetch fails in `FullScreenPlayer.tsx`.
+- [ ] **Scanner Logic:** Refine synced lyrics detection in `scanner.py` using regex instead of simple bracket heuristics.
+
+---
+
+## 💡 Ideas / Future
 
 - [ ] File watcher for auto-updating library on file changes
 - [ ] Equalizer controls (Web Audio API)
@@ -75,24 +72,14 @@ Tracking known issues and planned improvements for Tremors Music v2.0.0.
 - [ ] macOS and Linux builds
 - [ ] Keyboard shortcuts help modal (? key)
 - [ ] Export/import playlists
+- [ ] **Technical Debt:** Consider using TanStack Query for scan status polling instead of raw `setInterval`.
 
 ---
 
-## 🔧 Technical Debt
+## 🏗️ Architecture Notes
 
-- [ ] Consider using TanStack Query for scan status polling instead of raw `setInterval`.
-- [ ] Consolidate type definitions - some types defined in both `api.ts` and `types.ts` (e.g., Artist, Genre).
-- [ ] Add error boundaries around individual components, not just at App level.
-
----
-
-## 📊 Performance Notes
-
-- Virtualized list in SongList handles 10,000+ songs efficiently
-- Album covers use `loading="lazy"` for deferred loading
-- SongListItem model excludes lyrics to reduce payload size
-- Scanner commits every 50 songs for transaction optimization
+- **Sidecar Pattern:** Python backend is bundled as an external binary and managed by the Tauri Rust shell.
+- **Virtualized Lists:** Critical for handling 10,000+ songs efficiently.
+- **SQLite + SQLModel:** Used for high-performance local metadata storage and retrieval.
 
 ---
-
-*Last reviewed: 2024-12-18*

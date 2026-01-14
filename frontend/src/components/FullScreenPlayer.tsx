@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePlayerStore } from '../stores/playerStore';
 import { getCoverUrl, getLyrics, getAlbum } from '../lib/api';
@@ -25,9 +25,16 @@ export function FullScreenPlayer({ isOpen, onClose }: FullScreenPlayerProps) {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const lastSongIdRef = useRef<number | null>(null);
+  const rafRef = useRef<number | null>(null);
+
+  // Helper to get time without state updates (for lyrics component)
+  const getTime = useCallback(() => {
+    const audio = document.querySelector('audio');
+    return audio ? audio.currentTime : 0;
+  }, []);
 
   // Only fetch lyrics & album info when song changes
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional: reset state on song change, fetch data async
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     if (!currentSong) return;
 
@@ -65,24 +72,26 @@ export function FullScreenPlayer({ isOpen, onClose }: FullScreenPlayerProps) {
     }
 
     return () => { isMounted = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- Only re-run when song ID changes
   }, [currentSong?.id]);
 
   useEffect(() => {
-    let interval: number;
     if (isOpen) {
-      // Use window.setInterval instead of NodeJS
-      interval = window.setInterval(() => {
+      const updateLoop = () => {
         const audio = document.querySelector('audio');
         if (audio) {
-          // Only update if changed significantly to reduce renders? 
-          // Actually 100ms is fine, but let's ensure we don't leak
+          // Update local state for the seek bar
           setCurrentTime(audio.currentTime);
           setDuration(audio.duration || 0);
         }
-      }, 100);
+        rafRef.current = requestAnimationFrame(updateLoop);
+      };
+
+      rafRef.current = requestAnimationFrame(updateLoop);
     }
-    return () => clearInterval(interval);
+
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
   }, [isOpen]);
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -256,7 +265,7 @@ export function FullScreenPlayer({ isOpen, onClose }: FullScreenPlayerProps) {
                     hasSyncedLyrics ? (
                       <SyncedLyrics
                         lyrics={lyricsContent}
-                        currentTime={currentTime}
+                        getTime={getTime}
                         className="h-full"
                       />
                     ) : (

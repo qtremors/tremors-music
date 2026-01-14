@@ -52,6 +52,10 @@ export function Player() {
   }, [volume]);
 
   const handleTimeUpdate = () => {
+    // Optimization: Don't update React state if the tab/window is hidden
+    // This dramatically reduces CPU usage when music is playing in background
+    if (document.hidden) return;
+
     if (audioRef.current) {
       setCurrentTime(audioRef.current.currentTime);
       setDuration(audioRef.current.duration || 0);

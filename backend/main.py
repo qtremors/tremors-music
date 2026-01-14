@@ -80,4 +80,4 @@ app.include_router(playlists.router)
 
 @app.get("/")
 def read_root():
-    return {"message": "Tremors Music Backend is Ready 🎵", "version": "1.5.0"}
+    return {"message": "Tremors Music Backend is Ready 🎵", "version": "2.0.1"}

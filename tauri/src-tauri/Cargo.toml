@@ -1,6 +1,6 @@
 [package]
 name = "tremors-music"
-version = "2.0.0"
+version = "2.0.1"
 description = "A high-performance, local-first music player"
 authors = ["Tremors"]
 license = "MIT"
@@ -21,3 +21,4 @@ serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
 tauri = { version = "2.9.4", features = [] }
 tauri-plugin-log = "2"
+tauri-plugin-shell = "2"
