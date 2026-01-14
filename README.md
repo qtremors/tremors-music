@@ -11,7 +11,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/React-19.2.0-61DAFB?logo=react" alt="React">
   <img src="https://img.shields.io/badge/FastAPI-0.115.0-009688?logo=fastapi" alt="FastAPI">
-  <img src="https://img.shields.io/badge/Tauri-2.0.1-24C8DB?logo=tauri" alt="Tauri">
+  <img src="https://img.shields.io/badge/Tauri-2.0.2-24C8DB?logo=tauri" alt="Tauri">
   <img src="https://img.shields.io/badge/License-TSL-red" alt="License">
 </p>
 

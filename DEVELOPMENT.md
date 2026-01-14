@@ -2,7 +2,7 @@
 
 > Comprehensive documentation for developers working on Tremors Music, covering architecture, setup, and contribution guidelines.
 
-**Version:** 2.0.1 | **Last Updated:** 2026-01-13
+**Version:** 2.0.2 | **Last Updated:** 2026-01-14
 
 ---
 
@@ -156,38 +156,75 @@ erDiagram
 - **uv** - Python package manager (`pip install uv`)
 - **Rust** - For Tauri builds ([rustup.rs](https://rustup.rs))
 
-### Installation
+### 1. Installation
 
 ```bash
 # Clone the repo
 git clone https://github.com/qtremors/tremors-music.git
 cd tremors-music
 
-# Backend Sync
+# Backend Dependencies
 cd backend && uv sync && cd ..
 
-# Frontend & Tauri Install
+# Frontend Dependencies
 cd frontend && npm install && cd ..
+
+# Tauri Dependencies
 cd tauri && npm install && cd ..
 ```
+
+### 2. Browser Development (Web Mode)
+Use this mode for rapid UI development without the native shell.
+
+**Terminal 1: Python Backend**
+```bash
+cd backend
+uv run uvicorn main:app --reload
+# API runs at http://localhost:8000
+```
+
+**Terminal 2: React Frontend**
+```bash
+cd frontend
+npm run dev
+# App runs at http://localhost:5173
+```
+
+### 3. Desktop Development (Tauri Mode)
+Use this mode to test native features (system tray, global shortcuts, file system) in the actual application shell.
+
+```bash
+cd tauri
+npm run dev
+```
+> **Note:** This command automatically starts the Frontend and Backend in the background.
 
 ---
 
 ## Building & Deployment
 
-### Build Desktop Executable
+### Build for Browser (Static Web App)
+Generates static files for web servers (Nginx, Vercel, Netlify).
 
-The build process involves two main steps:
-1. Compiling the Python backend into a sidecar binary using `PyInstaller`.
-2. Bundling the frontend and the sidecar into the Tauri installer.
+```bash
+cd frontend
+npm run build
+# Output: frontend/dist/
+```
+
+### Build for Desktop (Windows/macOS)
+Generates native installers (`.exe`, `.msi`, `.dmg`).
 
 ```bash
 cd tauri
 npm run build
 ```
-
-> [!IMPORTANT]
-> Installers are created in `tauri/src-tauri/target/release/bundle/`.
+> **What this does:**
+> 1. Compiles the Python backend into a standalone executable (Sidecar).
+> 2. Builds the React frontend into static assets.
+> 3. Bundles everything into a native Tauri installer.
+>
+> **Output:** `tauri/src-tauri/target/release/bundle/`
 
 ---
 

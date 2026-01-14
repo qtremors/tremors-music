@@ -1,8 +1,8 @@
 # Privacy Notice - Tremors Music
 
 > **Project:** Tremors Music  
-> **Version:** 2.0.1  
-> **Last Updated:** 2026-01-13
+> **Version:** 2.0.2  
+> **Last Updated:** 2026-01-14
 
 ---
 
