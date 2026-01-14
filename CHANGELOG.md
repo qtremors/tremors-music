@@ -2,7 +2,7 @@
 
 > **Project:** Tremors Music  
 > **Version:** 2.0.1  
-> **Last Updated:** 2026-01-13
+> **Last Updated:** 2026-01-14
 
 ---
 
@@ -16,6 +16,11 @@
 ### Fixed
 - **Sidecar Integration** - Fixed an issue where the Python backend was not starting with the app.
 - **Installer Size** - Fixed bundling issue where the external backend binary was missing.
+
+### Security
+- **Strict CORS** - Restricted origins to `localhost:5173`, `127.0.0.1:8000`, and Tauri protocols; blocked wildcard access.
+- **Content Security Policy** - Enabled strict CSP in `tauri.conf.json` to prevent unauthorized script execution.
+- **Exception Safety** - Replaced bare `except:` clauses to prevent swallowing system interrupts.
 
 ---
 

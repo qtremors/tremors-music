@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/tremorsmusic.png" alt="Tremors Music Logo" width="128" height="128">
+  <img src="assets/tremorsmusic.png" alt="Tremors Music Logo" width="120" height="120">
 </p>
 
 <h1 align="center"><a href="https://github.com/qtremors/tremors-music">Tremors Music</a></h1>

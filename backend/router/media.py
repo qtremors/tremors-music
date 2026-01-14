@@ -66,7 +66,7 @@ def get_album_cover(album_id: int, size: str = "small", session: Session = Depen
             
             if image_data:
                 break # Found art
-        except:
+        except Exception:
             continue
 
     if image_data:
@@ -152,7 +152,7 @@ def get_lyrics(song_id: int, session: Session = Depends(get_session)):
                                 txxx_keys = [k for k in audio_raw.keys() if k.startswith('TXXX:LYRICS')]
                                 if txxx_keys:
                                     raw_lyrics = str(audio_raw[txxx_keys[0]])
-                    except:
+                    except Exception:
                         pass
 
                 if raw_lyrics and len(raw_lyrics.strip()) > 0:

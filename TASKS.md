@@ -9,9 +9,9 @@
 ### 🔴 Critical Priority
 
 #### Security
-- [ ] **CORS Wildcard Origins** - `main.py` uses `allow_origins=["*"]` which allows any origin. Should restrict to `http://localhost:5173` and `http://127.0.0.1:8000` in development, and Tauri protocol in production.
-- [ ] **Disabled CSP** - `tauri.conf.json` has `"csp": null` which disables Content Security Policy entirely. Should configure proper CSP for production builds.
-- [ ] **Bare Exception Handling** - `scanner.py:180`, `scanner.py:308`, `media.py:69`, `media.py:155` use bare `except:` clauses which can hide errors and mask unexpected exceptions.
+- [x] **CORS Wildcard Origins** - `main.py` uses `allow_origins=["*"]` which allows any origin. Should restrict to `http://localhost:5173` and `http://127.0.0.1:8000` in development, and Tauri protocol in production.
+- [x] **Disabled CSP** - `tauri.conf.json` has `"csp": null` which disables Content Security Policy entirely. Should configure proper CSP for production builds.
+- [x] **Bare Exception Handling** - `scanner.py:180`, `scanner.py:308`, `media.py:69`, `media.py:155` use bare `except:` clauses which can hide errors and mask unexpected exceptions.
 
 #### Bugs
 - [ ] **Scanner Stop Not Working** - `handleStopScan()` in `ScannerControl.tsx` only stops polling but never calls the backend `POST /library/scan/stop` endpoint, so the scan continues running in the background.

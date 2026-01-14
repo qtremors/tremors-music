@@ -177,7 +177,7 @@ def scan_directory(root_directory: str):
                                         # M4A ©lyr
                                         elif '©lyr' in audio_raw:
                                             lyrics = audio_raw['©lyr'][0]
-                                except:
+                                except Exception:
                                     pass
 
                             has_lyrics = lyrics is not None and len(lyrics) > 0
