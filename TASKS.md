@@ -1,47 +1,12 @@
 # Tremors Music - Tasks
 
 > **Project:** Tremors Music  
-> **Version:** 2.0.1  
+> **Version:** 2.0.2
 > **Last Updated:** 2026-01-14
 
 ---
 
-### 🟠 High Priority
-
-#### Code Quality
-- [ ] **Type Inconsistency** - `getPlaylistSongs(id: string)` in `api.ts:145` uses `string` ID while all other functions use `number`. Should standardize to `number`.
-- [ ] **Duplicate Fisher-Yates Shuffle** - Implementation exists in both `playerStore.ts:60-64` (inline) and `utils.ts:68-74` (as `shuffleArray`). Should consolidate.
-- [ ] **Duplicate `app_dir` Resolution** - Same logic for determining executable directory exists in `main.py:15-20` and `database.py:6-13`. Should extract to shared utility.
-- [ ] **Frontend Version Mismatch** - `package.json` shows version `1.5.0` while all docs and backend show version `2.0.1`. Should sync.
-- [ ] **Weak Synced Lyrics Detection** - `scanner.py:235,285` uses simple `'[' in lyrics and ']' in lyrics` which can false-positive on non-LRC content. Should use regex pattern like `\[\d{2}:\d{2}`.
-
-#### Architecture
-- [ ] **LibraryPathManager saveEdit Incomplete** - `LibraryPathManager.tsx:74-80` has a TODO comment noting backend doesn't have edit endpoint, but `PATCH /library/paths/{id}` actually exists in `library.py:43-57`. Should connect frontend to existing backend.
-
-### 🟡 Medium Priority
-
-#### UI/UX Polish
-- [ ] **Alert() Calls Instead of Toasts** - Native `alert()` used in:
-  - `QueuePanel.tsx:143` - "Saved as" confirmation
-  - `SettingsModal.tsx:39` - "Invalid path or server error"
-  - `LibraryPathManager.tsx:42` - "Invalid path or server error"
-  Should replace with toast notifications using existing `useToastStore`.
-- [ ] **NaN Guard in Progress Bar** - `Player.tsx:176` calculates `(currentTime / duration) * 100` which produces `NaN` when `duration=0`. Should add guard: `((currentTime / (duration || 1)) * 100)`.
-- [ ] **Missing Image Alt Attributes** - Cover images lack meaningful alt text in:
-  - `FullScreenPlayer.tsx:145` - Empty or missing
-  - `SongList.tsx:210` - Empty `loading="lazy"` only
-  - `SearchPage.tsx:244` - Empty `alt=""`
-  Should add `alt={song.title}` or similar.
-
-#### Performance
-- [ ] **Raw setInterval for Scan Polling** - `ScannerControl.tsx:119` uses `setInterval` for scan status polling. Consider migrating to TanStack Query with `refetchInterval` for better state management and automatic cleanup.
-- [ ] **Cover Cache Never Purged** - `media.py:20-21` creates `covers/` cache directory but never cleans up old/orphaned covers when albums are deleted. Should add cleanup logic to library reset or scanner.
-
-#### Code Quality
-- [ ] **Unused currentIndex State** - `playerStore.ts:14` defines `currentIndex` but it's calculated dynamically in most places using `queue.findIndex()`. Should either use consistently or remove.
-- [ ] **Empty lib.rs** - `tauri/src-tauri/src/lib.rs` likely exists but not reviewed. Should verify sidecar spawn logic is properly implemented.
-
-### � Low Priority
+### ⚫ Low Priority
 
 #### Accessibility
 - [ ] **Missing Keyboard Navigation** - Full screen player controls (`FullScreenPlayer.tsx`) lack keyboard event handlers beyond global shortcuts.

@@ -142,7 +142,7 @@ export const reorderPlaylist = async (playlistId: number, songIds: number[]) => 
   await api.post(`/playlists/${playlistId}/reorder`, { song_ids: songIds });
 };
 
-export const getPlaylistSongs = async (id: string) => {
+export const getPlaylistSongs = async (id: number) => {
   const response = await api.get<Song[]>(`/playlists/${id}/songs`);
   return Array.isArray(response.data) ? response.data : [];
 };

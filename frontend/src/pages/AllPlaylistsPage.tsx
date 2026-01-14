@@ -46,7 +46,7 @@ function PlaylistCard({ playlist }: { playlist: Playlist }) {
   // Fetch first song to get cover art
   const { data: songs } = useQuery({
     queryKey: ['playlist-songs', playlist.id],
-    queryFn: () => getPlaylistSongs(playlist.id.toString()),
+    queryFn: () => getPlaylistSongs(playlist.id),
   });
 
   const handlePlay = (e: React.MouseEvent) => {

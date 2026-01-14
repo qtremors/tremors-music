@@ -6,6 +6,18 @@
 
 ---
 
+## [2.0.2] - 2026-01-14
+
+### Changed
+- **Code Quality** - Standardized API types, deduplicated shuffle logic, and centralized application directory resolution.
+- **Robustness** - Improved synced lyrics detection using regex to prevent false positives on normal bracketed text.
+- **Library Management** - Implemented "Edit Path" functionality in the frontend, connecting it to the existing backend endpoint.
+- **Versioning** - Synced frontend package.json version with the main application version.
+- **UI/UX Polish** - Replaced native `alert()` with modern toast notifications, added progress bar safety guards, and improved accessibility with meaningful image alt text.
+- **Performance** - Refactored scanner polling to use TanStack Query for efficient resource management and automatic cleanup.
+- **Maintenance** - Implemented automated cover image cache cleanup to remove orphaned files.
+- **Code Quality** - Removed redundant state from player store to improve data consistency.
+
 ## [2.0.1] - 2025-12-23
 
 ### Changed

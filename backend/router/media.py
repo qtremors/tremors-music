@@ -20,6 +20,43 @@ DEFAULT_COVER = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAA
 COVERS_DIR = os.path.join(get_app_dir(), "covers")
 os.makedirs(COVERS_DIR, exist_ok=True)
 
+def get_cover_path(album_id: int, is_full: bool = False):
+    """Get the path to the cached cover image for an album."""
+    filename = f"{album_id}_full.jpg" if is_full else f"{album_id}.jpg"
+    return os.path.join(COVERS_DIR, filename)
+
+def cleanup_covers():
+    """Remove cover images that don't have a corresponding album in the database."""
+    try:
+        # Import here to avoid circular dependencies if this file is imported by models/database
+        from models import Album
+        from sqlmodel import Session, select
+        from database import engine
+
+        # efficient set lookup
+        with Session(engine) as session:
+            # Get IDs of all albums, both full and small versions
+            existing_ids = {str(a.id) for a in session.exec(select(Album.id)).all()}
+        
+        if not os.path.exists(COVERS_DIR):
+            return
+
+        for filename in os.listdir(COVERS_DIR):
+            if not filename.endswith('.jpg'):
+                continue
+            
+            # filename format is "{id}.jpg" or "{id}_full.jpg"
+            # Extract the album ID part
+            album_id_part = filename.split('_')[0] # Handles both "123.jpg" and "123_full.jpg"
+            
+            if album_id_part not in existing_ids:
+                try:
+                    os.remove(os.path.join(COVERS_DIR, filename))
+                except OSError as e:
+                    print(f"[WARNING] Failed to remove cached cover {filename}: {e}")
+    except Exception as e:
+        print(f"[ERROR] Error cleaning up covers: {e}")
+
 @router.get("/covers/{album_id}")
 def get_album_cover(album_id: int, size: str = "small", session: Session = Depends(get_session)):
     # Validate size

@@ -147,7 +147,7 @@ export function PlaylistDetail() {
   // 2. Get Songs
   const { data: serverSongs, isLoading } = useQuery({
     queryKey: ['playlist-songs', id],
-    queryFn: () => getPlaylistSongs(id!),
+    queryFn: () => getPlaylistSongs(Number(id!)),
     enabled: !!id,
   });
 

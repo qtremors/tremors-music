@@ -71,12 +71,16 @@ export function LibraryPathManager() {
     };
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const saveEdit = async (_id: number) => {
+    const saveEdit = async (id: number) => {
         if (!editingPath.trim()) return;
-        // Note: Backend doesn't have edit endpoint yet, would need to add
-        // For now, just cancel editing
-        cancelEditing();
-        // TODO: Implement backend PATCH /library/paths/{id}
+        try {
+            await api.patch(`/library/paths/${id}`, { path: editingPath });
+            // Reload paths to confirm update
+            await loadPaths();
+            cancelEditing();
+        } catch {
+            alert('Failed to update path (server error or invalid path)');
+        }
     };
 
 

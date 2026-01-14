@@ -207,7 +207,7 @@ export function SongList() {
                                         <div className="w-12 flex-shrink-0 flex justify-center">
                                             <div className="w-9 h-9 rounded bg-gray-200 dark:bg-white/10 relative overflow-hidden border border-black/5 dark:border-white/5">
                                                 {song.album_id ? (
-                                                    <img src={getCoverUrl(song.album_id)} className="w-full h-full object-cover" loading="lazy" />
+                                                    <img src={getCoverUrl(song.album_id)} className="w-full h-full object-cover" loading="lazy" alt={song.title} />
                                                 ) : <Music size={14} className="m-auto text-gray-400" />}
                                             </div>
                                         </div>

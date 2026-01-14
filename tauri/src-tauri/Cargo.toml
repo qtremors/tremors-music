@@ -1,6 +1,6 @@
 [package]
 name = "tremors-music"
-version = "2.0.1"
+version = "2.0.2"
 description = "A high-performance, local-first music player"
 authors = ["Tremors"]
 license = "MIT"

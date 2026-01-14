@@ -173,7 +173,7 @@ export function Player() {
             <div className="flex-1 h-1 bg-gray-300 dark:bg-white/10 rounded-full relative group">
               <div
                 className="absolute top-0 left-0 h-full bg-apple-text rounded-full transition-all"
-                style={{ width: `${(currentTime / duration) * 100}%` }}
+                style={{ width: `${(currentTime / (duration || 1)) * 100}%` }}
               />
               <input
                 type="range" min={0} max={duration || 100} value={currentTime}

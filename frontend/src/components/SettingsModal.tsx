@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { X, Plus, Trash2, RefreshCw, Moon, Sun } from 'lucide-react';
 import api from '../lib/api';
 import { useThemeStore } from '../stores/themeStore';
+import { useToastStore } from '../stores/toastStore';
 
 interface SettingsModalProps {
   onClose: () => void;
@@ -36,7 +37,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
       setNewPath('');
       loadPaths();
     } catch {
-      alert('Invalid path or server error');
+      useToastStore.getState().addToast('Invalid path or server error', 'error');
     }
   };
 

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { Song } from '../types';
 import { getSong } from '../lib/api';
+import { shuffleArray } from '../lib/utils';
 
 type RepeatMode = 'off' | 'all' | 'one';
 
@@ -11,7 +12,6 @@ interface PlayerState {
   volume: number;
   queue: Song[];
   originalQueue: Song[];
-  currentIndex: number;
   repeatMode: RepeatMode;
   isShuffle: boolean;
 
@@ -39,7 +39,6 @@ export const usePlayerStore = create<PlayerState>()(
       volume: 1,
       queue: [],
       originalQueue: [],
-      currentIndex: -1,
       repeatMode: 'off',
       isShuffle: false,
 
@@ -57,20 +56,19 @@ export const usePlayerStore = create<PlayerState>()(
         const { isShuffle, originalQueue, currentSong } = get();
         if (!isShuffle) {
           const newQueue = [...originalQueue];
-          // Fisher-Yates Shuffle
-          for (let i = newQueue.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [newQueue[i], newQueue[j]] = [newQueue[j], newQueue[i]];
-          }
-          // Keep current song first
+          // Use shared Fisher-Yates shuffle
+          const shuffled = shuffleArray(newQueue);
+
+          // Keep current song first logic...
+          const queueToSet = shuffled;
           if (currentSong) {
-            const idx = newQueue.findIndex(s => s.id === currentSong.id);
+            const idx = queueToSet.findIndex(s => s.id === currentSong.id);
             if (idx > -1) {
-              newQueue.splice(idx, 1);
-              newQueue.unshift(currentSong);
+              queueToSet.splice(idx, 1);
+              queueToSet.unshift(currentSong);
             }
           }
-          set({ isShuffle: true, queue: newQueue });
+          set({ isShuffle: true, queue: queueToSet });
         } else {
           set({ isShuffle: false, queue: originalQueue });
         }
@@ -84,66 +82,71 @@ export const usePlayerStore = create<PlayerState>()(
 
       playNext: () => {
         const { queue, currentSong, repeatMode } = get();
-        if (!currentSong) return;
+        if (queue.length === 0) return;
 
-        if (repeatMode === 'one') {
+        // Handle 'one' repeat mode first
+        if (repeatMode === 'one' && currentSong) {
           set({ isPlaying: true });
           const audio = document.querySelector('audio');
           if (audio) { audio.currentTime = 0; audio.play(); }
           return;
         }
 
-        const idx = queue.findIndex(s => s.id === currentSong.id);
-        if (idx < queue.length - 1) {
-          set({ currentSong: queue[idx + 1], isPlaying: true });
-        } else if (repeatMode === 'all') {
-          set({ currentSong: queue[0], isPlaying: true });
-        } else {
-          set({ isPlaying: false });
+        const currentIndex = currentSong ? queue.findIndex(s => s.id === currentSong.id) : -1;
+
+        let nextIndex = currentIndex + 1;
+        if (nextIndex >= queue.length) {
+          if (repeatMode === 'all') {
+            nextIndex = 0; // Loop back to the beginning
+          } else {
+            set({ isPlaying: false }); // End of queue, stop playing
+            return;
+          }
         }
+
+        set({ currentSong: queue[nextIndex], isPlaying: true });
       },
 
       playPrev: () => {
-        const { queue, currentSong } = get();
-        if (!currentSong) return;
-        const idx = queue.findIndex(s => s.id === currentSong.id);
-        if (idx > 0) {
-          set({ currentSong: queue[idx - 1], isPlaying: true });
-        } else {
-          // If at start of list, restart song
-          const audio = document.querySelector('audio');
-          if (audio) audio.currentTime = 0;
+        const { queue, currentSong, repeatMode } = get();
+        if (queue.length === 0) return;
+
+        const currentIndex = currentSong ? queue.findIndex(s => s.id === currentSong.id) : -1;
+
+        let prevIndex = currentIndex - 1;
+        if (prevIndex < 0) {
+          if (repeatMode === 'all') {
+            prevIndex = queue.length - 1;
+          } else {
+            return; // Start of queue
+          }
         }
+
+        set({ currentSong: queue[prevIndex], isPlaying: true });
       },
 
       // Queue management actions
       reorderQueue: (oldIndex: number, newIndex: number) => {
-        const { queue, currentSong } = get();
-        const newQueue = [...queue];
-        const [removed] = newQueue.splice(oldIndex, 1);
-        newQueue.splice(newIndex, 0, removed);
+        set((state) => {
+          const newQueue = [...state.queue];
+          const [moved] = newQueue.splice(oldIndex, 1);
+          newQueue.splice(newIndex, 0, moved);
 
-        // Update current index if needed
-        const newCurrentIndex = newQueue.findIndex(s => s.id === currentSong?.id);
-
-        set({ queue: newQueue, currentIndex: newCurrentIndex });
+          return { queue: newQueue };
+        });
       },
 
       removeFromQueue: (index: number) => {
-        const { queue, currentSong } = get();
-        const newQueue = queue.filter((_, i) => i !== index);
-
-        // Update current index if needed
-        const newCurrentIndex = newQueue.findIndex(s => s.id === currentSong?.id);
-
-        set({ queue: newQueue, currentIndex: newCurrentIndex });
+        const { queue } = get();
+        const newQueue = [...queue];
+        newQueue.splice(index, 1);
+        set({ queue: newQueue });
       },
 
       addToQueue: (song: Song) => {
         const { queue, originalQueue, currentSong } = get();
         const currentIdx = queue.findIndex(s => s.id === currentSong?.id);
 
-        // Insert after current song, or at end if no current song
         const newQueue = [...queue];
         const newOriginalQueue = [...originalQueue];
         if (currentIdx >= 0) {
@@ -165,7 +168,7 @@ export const usePlayerStore = create<PlayerState>()(
       },
 
       clearQueue: () => {
-        set({ queue: [], originalQueue: [], currentIndex: -1, currentSong: null, isPlaying: false });
+        set({ queue: [], originalQueue: [], currentSong: null, isPlaying: false });
       },
 
       validateState: async () => {
@@ -180,7 +183,6 @@ export const usePlayerStore = create<PlayerState>()(
           set({
             queue: [],
             originalQueue: [],
-            currentIndex: -1,
             currentSong: null,
             isPlaying: false
           });

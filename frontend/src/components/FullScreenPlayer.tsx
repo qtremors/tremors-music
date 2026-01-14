@@ -150,8 +150,11 @@ export function FullScreenPlayer({ isOpen, onClose }: FullScreenPlayerProps) {
               {/* Flexible Art Container */}
               <div className="flex-1 min-h-0 flex items-center justify-center mb-6 w-full">
                 <div className="aspect-square h-full max-h-[50vh] w-auto rounded-xl shadow-2xl overflow-hidden border border-white/10 bg-gray-800 relative flex-shrink-0">
-                  {currentSong.album_id && <img src={getCoverUrl(currentSong.album_id, 'full')} className="w-full h-full object-cover" />}
-                </div>
+                  <img
+                    src={getCoverUrl(currentSong.album_id ?? 0, 'full')}
+                    alt={currentSong.title || 'Album Art'}
+                    className="w-full h-full object-cover shadow-2xl rounded-lg"
+                  />  </div>
               </div>
 
               {/* Metadata & Controls */}
