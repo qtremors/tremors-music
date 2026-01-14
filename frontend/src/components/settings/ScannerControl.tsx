@@ -147,6 +147,7 @@ export function ScannerControl() {
 
     const handleStopScan = async () => {
         try {
+            await api.post('/library/scan/stop');
             stopPolling();
             setIsScanning(false);
         } catch (e) {

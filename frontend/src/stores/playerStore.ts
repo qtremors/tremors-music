@@ -151,8 +151,15 @@ export const usePlayerStore = create<PlayerState>()(
         } else {
           newQueue.push(song);
         }
-        // Also add to originalQueue to keep them in sync
-        newOriginalQueue.push(song);
+
+        // Also properly insert into originalQueue relative to current song
+        // Find current song in originalQueue
+        const originalCurrentIdx = newOriginalQueue.findIndex(s => s.id === currentSong?.id);
+        if (originalCurrentIdx >= 0) {
+          newOriginalQueue.splice(originalCurrentIdx + 1, 0, song);
+        } else {
+          newOriginalQueue.push(song);
+        }
 
         set({ queue: newQueue, originalQueue: newOriginalQueue });
       },

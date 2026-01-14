@@ -20,6 +20,7 @@ export function FullScreenPlayer({ isOpen, onClose }: FullScreenPlayerProps) {
   } = usePlayerStore();
 
   const [lyrics, setLyrics] = useState<{ plainLyrics?: string, syncedLyrics?: string } | null>(null);
+  const [isLoadingLyrics, setIsLoadingLyrics] = useState(false);
   const [albumName, setAlbumName] = useState<string | null>(null);
   const [showLyrics, setShowLyrics] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -48,12 +49,19 @@ export function FullScreenPlayer({ isOpen, onClose }: FullScreenPlayerProps) {
     let isMounted = true;
 
     // Fetch Lyrics
+    setIsLoadingLyrics(true);
     getLyrics(currentSong.id)
       .then(data => {
-        if (isMounted) setLyrics(data);
+        if (isMounted) {
+          setLyrics(data);
+          setIsLoadingLyrics(false);
+        }
       })
       .catch(() => {
-        if (isMounted) setLyrics(null);
+        if (isMounted) {
+          setLyrics(null);
+          setIsLoadingLyrics(false);
+        }
       });
 
     // Fetch Album Name (if missing from song object)
@@ -278,7 +286,7 @@ export function FullScreenPlayer({ isOpen, onClose }: FullScreenPlayerProps) {
                   ) : (
                     <div className="flex flex-col items-center justify-center h-full text-white/30 space-y-4">
                       <span className="italic text-xl font-medium">
-                        {lyrics === null ? "Searching for lyrics..." : "No lyrics available"}
+                        {isLoadingLyrics ? "Searching for lyrics..." : "No lyrics available"}
                       </span>
                     </div>
                   )}

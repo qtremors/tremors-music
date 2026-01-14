@@ -16,6 +16,9 @@
 ### Fixed
 - **Sidecar Integration** - Fixed an issue where the Python backend was not starting with the app.
 - **Installer Size** - Fixed bundling issue where the external backend binary was missing.
+- **Scanner Control** - Fixed issue where stopping a scan only stopped frontend polling; now correctly terminates backend process.
+- **Lyrics UI** - Fixed "Searching..." stuck state by implementing proper loading indicators.
+- **Queue Synchronization** - Fixed desync between shuffled and original queues when adding songs during shuffle.
 
 ### Security
 - **Strict CORS** - Restricted origins to `localhost:5173`, `127.0.0.1:8000`, and Tauri protocols; blocked wildcard access.
