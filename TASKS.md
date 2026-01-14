@@ -1,48 +1,55 @@
-# Tasks & Known Issues
+# Tremors Music - Tasks
 
-Tracking known issues and planned improvements for Tremors Music v2.0.0.
-
----
-
-## ✅ Completed (v2.0.0)
-
-- [x] Consolidated web and desktop repos into monorepo
-- [x] Fresh Tauri initialization with proper branding
-- [x] Build system working (npm run build)
-- [x] Memory optimizations from web version
-- [x] Custom icons and installer branding
-- [x] Updated all documentation
+> **Project:** Tremors Music  
+> **Version:** 2.0.2
+> **Last Updated:** 2026-01-14
 
 ---
 
-## 🔴 High Priority
+### ⚫ Low Priority
 
-- [ ] **ScannerControl.tsx**: `handleStopScan` doesn't call backend `/scan/stop` - only stops polling
-- [ ] **api.ts**: `getPlaylistSongs(id: string)` inconsistent with other functions using `number`
-- [ ] **FullScreenPlayer.tsx**: "Searching for lyrics..." shown indefinitely if fetch fails
+#### Accessibility
+- [ ] **Missing Keyboard Navigation** - Full screen player controls (`FullScreenPlayer.tsx`) lack keyboard event handlers beyond global shortcuts.
+- [ ] **No ARIA Labels** - Interactive elements like icon buttons (`IconButton.tsx`, various components) lack `aria-label` attributes for screen readers.
+- [ ] **Color Contrast** - Some `text-apple-subtext` on dark backgrounds may not meet WCAG AA contrast requirements.
 
----
+#### Code Quality
+- [ ] **Console.error Without User Feedback** - `LibraryPathManager.tsx:26,59` logs errors but shows nothing to users. Should add toast notification.
+- [ ] **Hardcoded Magic Numbers** - Various places use hardcoded limits:
+  - `library.py:135` - Recently added limit 50
+  - `library.py:243` - Most played limit 50
+  - `QueuePanel.tsx:256` - Queue display limit 50
+  Should consider extracting to constants.
 
-## 🟠 Medium Priority
-
-- [ ] **Player.tsx**: Guard against NaN in progress bar (`duration > 0 ? ... : 0`)
-- [ ] **playerStore.ts**: `addToQueue` inserts at different positions in `queue` vs `originalQueue`
-- [ ] **LibraryPathManager.tsx**: `saveEdit` is a no-op - hide Edit button until backend ready
-
----
-
-## 🟡 Low Priority / Nice to Have
-
-- [ ] Replace `alert()` calls with toast notifications
-- [ ] Add `alt` attributes to all cover images for accessibility
-- [ ] Extract `app_dir` resolution to shared utility
-- [ ] Use regex for synced lyrics detection instead of simple heuristic
+#### Documentation
+- [ ] **README Version Badges** - Badges show `React-19.2.0`, `FastAPI-0.115.0`, `Tauri-2.0.1` but should verify these match actual dependency versions.
+- [ ] **CHANGELOG Year Inconsistency** - Dates show `2025-12-23` but "Last Updated" shows `2026-01-13`. Verify timeline accuracy.
+- [ ] **API Documentation Missing** - `DEVELOPMENT.md` lists endpoints but doesn't document request/response schemas.
 
 ---
 
-## 📝 Future Features
+## 🐛 Bug Fixes (Previously Tracked)
+
+- [ ] **Scanner Stop Never Called** - `handleStopScan()` in `ScannerControl.tsx` needs to call backend endpoint (duplicate of above, can merge).
+
+---
+
+## 💡 Ideas / Future
 
 - [ ] File watcher for auto-updating library on file changes
 - [ ] Equalizer controls (Web Audio API)
 - [ ] Mini player mode
 - [ ] macOS and Linux builds
+- [ ] Keyboard shortcuts help modal (? key)
+- [ ] Export/import playlists
+- [ ] **Technical Debt:** Consider using TanStack Query for scan status polling instead of raw `setInterval`.
+
+---
+
+## 🏗️ Architecture Notes
+
+- **Sidecar Pattern:** Python backend is bundled as an external binary and managed by the Tauri Rust shell.
+- **Virtualized Lists:** Critical for handling 10,000+ songs efficiently.
+- **SQLite + SQLModel:** Used for high-performance local metadata storage and retrieval.
+
+---

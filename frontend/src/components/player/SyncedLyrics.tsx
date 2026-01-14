@@ -10,7 +10,7 @@ interface LyricLine {
 
 interface SyncedLyricsProps {
     lyrics: string;
-    currentTime: number;
+    getTime: () => number; // Use getter instead of prop to avoid re-renders
     className?: string;
 }
 
@@ -36,10 +36,11 @@ function parseLRC(lrc: string): LyricLine[] {
     return lines.sort((a, b) => a.time - b.time);
 }
 
-export function SyncedLyrics({ lyrics, currentTime, className }: SyncedLyricsProps) {
+export function SyncedLyrics({ lyrics, getTime, className }: SyncedLyricsProps) {
     const [currentLineIndex, setCurrentLineIndex] = useState(-1);
     const [isReady, setIsReady] = useState(false);
     const virtuosoRef = useRef<VirtuosoHandle>(null);
+    const rafRef = useRef<number | null>(null);
 
     // Delay rendering slightly to allow parent container height to settle (fixes "bugged" first load)
     useEffect(() => {
@@ -51,34 +52,35 @@ export function SyncedLyrics({ lyrics, currentTime, className }: SyncedLyricsPro
     const parsedLines = useMemo(() => parseLRC(lyrics), [lyrics]);
 
     // Reset index when song (lyrics) changes
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional: reset on prop change
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     useEffect(() => {
         setCurrentLineIndex(-1);
     }, [lyrics]);
 
-    // Calculate active index logic (Same efficient search as before)
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional: sync state with external time source
+    // Optimized rAF loop for checking time
     useEffect(() => {
         if (parsedLines.length === 0) return;
 
-        // Add 0.3s offset for better sync feel
-        const adjustedTime = currentTime + 0.3;
+        const checkTime = () => {
+            // Add 0.3s offset for better sync feel
+            const adjustedTime = getTime() + 0.3;
 
-        // Efficient search strategy
-        let nextIndex = -1;
+            // Efficient search strategy (use previous index as hint if possible)
+            // We can check against current state inside the update function if needed,
+            // but for rAF it's often cleaner to just compute the target index.
 
-        const nextPossible = currentLineIndex + 1;
-        if (nextPossible < parsedLines.length && parsedLines[nextPossible].time <= adjustedTime) {
-            for (let i = nextPossible; i < parsedLines.length; i++) {
-                if (parsedLines[i].time <= adjustedTime) {
-                    nextIndex = i;
-                } else {
-                    break;
-                }
-            }
-        } else if (currentLineIndex >= 0 && parsedLines[currentLineIndex].time <= adjustedTime) {
-            nextIndex = currentLineIndex;
-        } else {
+            let nextIndex = -1;
+
+            // Note: In a rAF loop, we don't have access to the *latest* currentLineIndex state 
+            // easily without refs or function updates. 
+            // However, doing a full search is cheap for < 100 lines.
+            // Let's implement a binary search for O(log n) efficiency if needed, 
+            // but linear scan is fine for typical song length.
+
+            // Find the last line that has started
+            // We can optimize this by remembering the last found index in a ref if performance is critical,
+            // but for now, simple findLastIndex logic is safest.
+
             for (let i = 0; i < parsedLines.length; i++) {
                 if (parsedLines[i].time <= adjustedTime) {
                     nextIndex = i;
@@ -86,21 +88,35 @@ export function SyncedLyrics({ lyrics, currentTime, className }: SyncedLyricsPro
                     break;
                 }
             }
-        }
 
-        if (nextIndex !== currentLineIndex) {
-            setCurrentLineIndex(nextIndex);
+            // Only trigger React re-render if index CHANGED
+            setCurrentLineIndex(prev => {
+                if (prev !== nextIndex) {
+                    // Sync scroll (side effect inside state updater is rare but safe for refs)
+                    if (nextIndex !== -1 && virtuosoRef.current) {
+                        // Debounce scroll slightly? No, immediate is better for lyrics.
+                        // We use requestAnimationFrame to ensure we aren't scrolling inside a render phase?
+                        // Actually virtuoso handles this well.
+                        virtuosoRef.current.scrollToIndex({
+                            index: nextIndex,
+                            align: 'center',
+                            behavior: 'smooth'
+                        });
+                    }
+                    return nextIndex;
+                }
+                return prev;
+            });
 
-            // Sync scroll with virtualization
-            if (nextIndex !== -1 && virtuosoRef.current) {
-                virtuosoRef.current.scrollToIndex({
-                    index: nextIndex,
-                    align: 'center',
-                    behavior: 'smooth'
-                });
-            }
-        }
-    }, [currentTime, parsedLines, currentLineIndex]);
+            rafRef.current = requestAnimationFrame(checkTime);
+        };
+
+        rafRef.current = requestAnimationFrame(checkTime);
+
+        return () => {
+            if (rafRef.current) cancelAnimationFrame(rafRef.current);
+        };
+    }, [parsedLines, getTime]); // Re-bind only if lines change (new song)
 
     if (parsedLines.length === 0) {
         return (

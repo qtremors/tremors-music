@@ -7,6 +7,8 @@ from database import engine
 from models import Song, Album
 from scanner_progress import scanner_progress
 
+import re
+
 AUDIO_EXTENSIONS = {'.mp3', '.flac', '.m4a', '.wav', '.ogg', '.wma', '.aac', '.alac'}
 
 def safe_get(audio, key, default=None):
@@ -177,7 +179,7 @@ def scan_directory(root_directory: str):
                                         # M4A ©lyr
                                         elif '©lyr' in audio_raw:
                                             lyrics = audio_raw['©lyr'][0]
-                                except:
+                                except Exception:
                                     pass
 
                             has_lyrics = lyrics is not None and len(lyrics) > 0
@@ -231,8 +233,8 @@ def scan_directory(root_directory: str):
                                 existing_song.codec = codec
                                 existing_song.has_lyrics = has_lyrics
                                 existing_song.lyrics = lyrics
-                                # Simple detection: if lyrics contains [00:00 style timestamps, it might be synced
-                                if lyrics and '[' in lyrics and ']' in lyrics:
+                                # Robust detection: look for [00:00 style timestamps
+                                if lyrics and re.search(r'\[\d{2}:\d{2}', lyrics):
                                     existing_song.synced_lyrics = lyrics
                                 existing_song.comment = comment
                                 existing_song.description = description
@@ -282,7 +284,7 @@ def scan_directory(root_directory: str):
                                     codec=codec,
                                     has_lyrics=has_lyrics,
                                     lyrics=lyrics,
-                                    synced_lyrics=lyrics if (lyrics and '[' in lyrics and ']' in lyrics) else None,
+                                    synced_lyrics=lyrics if (lyrics and re.search(r'\[\d{2}:\d{2}', lyrics)) else None,
                                     comment=comment,
                                     description=description,
                                     language=language,

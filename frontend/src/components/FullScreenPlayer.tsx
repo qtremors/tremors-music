@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePlayerStore } from '../stores/playerStore';
 import { getCoverUrl, getLyrics, getAlbum } from '../lib/api';
@@ -20,14 +20,22 @@ export function FullScreenPlayer({ isOpen, onClose }: FullScreenPlayerProps) {
   } = usePlayerStore();
 
   const [lyrics, setLyrics] = useState<{ plainLyrics?: string, syncedLyrics?: string } | null>(null);
+  const [isLoadingLyrics, setIsLoadingLyrics] = useState(false);
   const [albumName, setAlbumName] = useState<string | null>(null);
   const [showLyrics, setShowLyrics] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const lastSongIdRef = useRef<number | null>(null);
+  const rafRef = useRef<number | null>(null);
+
+  // Helper to get time without state updates (for lyrics component)
+  const getTime = useCallback(() => {
+    const audio = document.querySelector('audio');
+    return audio ? audio.currentTime : 0;
+  }, []);
 
   // Only fetch lyrics & album info when song changes
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional: reset state on song change, fetch data async
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     if (!currentSong) return;
 
@@ -41,12 +49,19 @@ export function FullScreenPlayer({ isOpen, onClose }: FullScreenPlayerProps) {
     let isMounted = true;
 
     // Fetch Lyrics
+    setIsLoadingLyrics(true);
     getLyrics(currentSong.id)
       .then(data => {
-        if (isMounted) setLyrics(data);
+        if (isMounted) {
+          setLyrics(data);
+          setIsLoadingLyrics(false);
+        }
       })
       .catch(() => {
-        if (isMounted) setLyrics(null);
+        if (isMounted) {
+          setLyrics(null);
+          setIsLoadingLyrics(false);
+        }
       });
 
     // Fetch Album Name (if missing from song object)
@@ -65,24 +80,26 @@ export function FullScreenPlayer({ isOpen, onClose }: FullScreenPlayerProps) {
     }
 
     return () => { isMounted = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- Only re-run when song ID changes
   }, [currentSong?.id]);
 
   useEffect(() => {
-    let interval: number;
     if (isOpen) {
-      // Use window.setInterval instead of NodeJS
-      interval = window.setInterval(() => {
+      const updateLoop = () => {
         const audio = document.querySelector('audio');
         if (audio) {
-          // Only update if changed significantly to reduce renders? 
-          // Actually 100ms is fine, but let's ensure we don't leak
+          // Update local state for the seek bar
           setCurrentTime(audio.currentTime);
           setDuration(audio.duration || 0);
         }
-      }, 100);
+        rafRef.current = requestAnimationFrame(updateLoop);
+      };
+
+      rafRef.current = requestAnimationFrame(updateLoop);
     }
-    return () => clearInterval(interval);
+
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
   }, [isOpen]);
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -133,8 +150,11 @@ export function FullScreenPlayer({ isOpen, onClose }: FullScreenPlayerProps) {
               {/* Flexible Art Container */}
               <div className="flex-1 min-h-0 flex items-center justify-center mb-6 w-full">
                 <div className="aspect-square h-full max-h-[50vh] w-auto rounded-xl shadow-2xl overflow-hidden border border-white/10 bg-gray-800 relative flex-shrink-0">
-                  {currentSong.album_id && <img src={getCoverUrl(currentSong.album_id, 'full')} className="w-full h-full object-cover" />}
-                </div>
+                  <img
+                    src={getCoverUrl(currentSong.album_id ?? 0, 'full')}
+                    alt={currentSong.title || 'Album Art'}
+                    className="w-full h-full object-cover shadow-2xl rounded-lg"
+                  />  </div>
               </div>
 
               {/* Metadata & Controls */}
@@ -256,7 +276,7 @@ export function FullScreenPlayer({ isOpen, onClose }: FullScreenPlayerProps) {
                     hasSyncedLyrics ? (
                       <SyncedLyrics
                         lyrics={lyricsContent}
-                        currentTime={currentTime}
+                        getTime={getTime}
                         className="h-full"
                       />
                     ) : (
@@ -269,7 +289,7 @@ export function FullScreenPlayer({ isOpen, onClose }: FullScreenPlayerProps) {
                   ) : (
                     <div className="flex flex-col items-center justify-center h-full text-white/30 space-y-4">
                       <span className="italic text-xl font-medium">
-                        {lyrics === null ? "Searching for lyrics..." : "No lyrics available"}
+                        {isLoadingLyrics ? "Searching for lyrics..." : "No lyrics available"}
                       </span>
                     </div>
                   )}

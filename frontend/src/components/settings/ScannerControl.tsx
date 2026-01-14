@@ -1,6 +1,6 @@
 // Scanner control with progress tracking and error details
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect, useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { RefreshCw, StopCircle, CheckCircle, AlertCircle, Clock, ChevronDown, ChevronUp } from 'lucide-react';
 import api from '../../lib/api';
 import { Card } from '../common/Card';
@@ -48,27 +48,8 @@ export function ScannerControl() {
         error_details: [],
         last_scan_result: null
     });
-    const pollInterval = useRef<ReturnType<typeof setInterval> | null>(null);
-    const timeInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
-    const stopPolling = useCallback(() => {
-        if (pollInterval.current) {
-            clearInterval(pollInterval.current);
-            pollInterval.current = null;
 
-            // Invalidate all library-related caches so new data appears
-            queryClient.invalidateQueries({ queryKey: ['songs'] });
-            queryClient.invalidateQueries({ queryKey: ['albums'] });
-            queryClient.invalidateQueries({ queryKey: ['albums-all'] });
-            queryClient.invalidateQueries({ queryKey: ['artists'] });
-            queryClient.invalidateQueries({ queryKey: ['genres'] });
-            queryClient.invalidateQueries({ queryKey: ['smart-playlist'] });
-        }
-        if (timeInterval.current) {
-            clearInterval(timeInterval.current);
-            timeInterval.current = null;
-        }
-    }, [queryClient]);
 
     const checkScanStatus = useCallback(async () => {
         try {
@@ -91,44 +72,59 @@ export function ScannerControl() {
             setProgress(safeData);
             setIsScanning(safeData.is_scanning);
             setError(null);
-
-            if (!safeData.is_scanning && pollInterval.current) {
-                stopPolling();
-            }
         } catch (e: unknown) {
             console.error('Failed to get scan status:', e);
             const errorMessage = e instanceof Error ? e.message : 'Failed to connect to scanner';
             setError(errorMessage);
         }
-    }, [stopPolling]);
+    }, []);
 
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional: check status on mount
     useEffect(() => {
         checkScanStatus();
-        return () => {
-            if (pollInterval.current) {
-                clearInterval(pollInterval.current);
-            }
-            if (timeInterval.current) {
-                clearInterval(timeInterval.current);
-            }
-        };
     }, [checkScanStatus]);
 
-    const startPolling = useCallback(() => {
-        pollInterval.current = setInterval(checkScanStatus, 500);
-        // Update elapsed time every second
-        timeInterval.current = setInterval(() => {
-            setProgress(prev => {
-                if (!prev.start_time) return prev;
-                const elapsed = Math.floor((Date.now() - prev.start_time) / 1000);
+    // Use TanStack Query for polling
+    useQuery({
+        queryKey: ['scanStatus'],
+        queryFn: async () => {
+            await checkScanStatus();
+            return null; // Return value doesn't matter, we update local state
+        },
+        // Poll every 500ms only when scanning
+        refetchInterval: isScanning ? 500 : false,
+        // Disable other automatic refetches
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: false,
+        refetchOnMount: true
+    });
+
+    // Update elapsed time locally
+    useEffect(() => {
+        let interval: ReturnType<typeof setInterval>;
+        if (isScanning && progress.start_time) {
+            interval = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - (progress.start_time || 0)) / 1000);
                 const mins = Math.floor(elapsed / 60);
                 const secs = elapsed % 60;
                 setElapsedTime(mins > 0 ? `${mins}m ${secs}s` : `${secs}s`);
-                return prev;
-            });
-        }, 1000);
-    }, [checkScanStatus]);
+            }, 1000);
+        }
+        return () => { if (interval) clearInterval(interval); };
+    }, [isScanning, progress.start_time]);
+
+    // Cleanup on unmount or scan stop
+    useEffect(() => {
+        if (!isScanning) {
+            // Invalidate all library-related caches so new data appears
+            queryClient.invalidateQueries({ queryKey: ['songs'] });
+            queryClient.invalidateQueries({ queryKey: ['albums'] });
+            queryClient.invalidateQueries({ queryKey: ['albums-all'] });
+            queryClient.invalidateQueries({ queryKey: ['artists'] });
+            queryClient.invalidateQueries({ queryKey: ['genres'] });
+            queryClient.invalidateQueries({ queryKey: ['smart-playlist'] });
+        }
+    }, [isScanning, queryClient]);
 
     const handleStartScan = async () => {
         try {
@@ -136,7 +132,8 @@ export function ScannerControl() {
             setIsScanning(true);
             setElapsedTime('0s');
             await api.post('/library/scan');
-            startPolling();
+            // Polling automatically starts via useQuery dependent on isScanning state (updated by mutation or optimistic update if we added it, but here we wait for next poll)
+            // But wait, useQuery relies on component render. We set isScanning=true here which enables polling.
         } catch (e: unknown) {
             console.error('Failed to start scan:', e);
             const errorMessage = e instanceof Error ? e.message : 'Failed to start scan';
@@ -147,14 +144,14 @@ export function ScannerControl() {
 
     const handleStopScan = async () => {
         try {
-            stopPolling();
+            await api.post('/library/scan/stop');
             setIsScanning(false);
         } catch (e) {
             console.error('Failed to stop scan:', e);
         }
     };
 
-    const getElapsedTime = () => elapsedTime;
+
 
     const formatDuration = (seconds: number) => {
         const mins = Math.floor(seconds / 60);
@@ -203,7 +200,7 @@ export function ScannerControl() {
                         <div className="space-y-1">
                             <div className="flex justify-between text-xs text-apple-subtext">
                                 <span>Scanning...</span>
-                                <span>{getElapsedTime()}</span>
+                                <span>{elapsedTime}</span>
                             </div>
                             <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                                 <div className="h-full bg-apple-accent transition-all duration-300 rounded-full" style={{ width: '100%' }}>

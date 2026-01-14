@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { X, GripVertical, Trash2, ListMusic, Save } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
+import { useToastStore } from '../../stores/toastStore';
 import { getCoverUrl, createPlaylist, addToPlaylist } from '../../lib/api';
 import { formatTime, cn } from '../../lib/utils';
 import { useQueryClient } from '@tanstack/react-query';
@@ -110,7 +111,7 @@ function SortableSongItem({ song, isCurrent, onRemove }: SortableSongItemProps) 
 
 export function QueuePanel({ isOpen, onClose }: QueuePanelProps) {
     const queryClient = useQueryClient();
-    const { queue, currentSong, currentIndex, reorderQueue, removeFromQueue, clearQueue } = usePlayerStore();
+    const { queue, currentSong, reorderQueue, removeFromQueue, clearQueue } = usePlayerStore();
     const [isSaving, setIsSaving] = useState(false);
 
     const sensors = useSensors(
@@ -130,6 +131,7 @@ export function QueuePanel({ isOpen, onClose }: QueuePanelProps) {
         }
     };
 
+    const currentIndex = currentSong ? queue.findIndex(s => s.id === currentSong.id) : -1;
     const upcomingSongs = queue.slice(currentIndex + 1);
 
     const handleSaveAsPlaylist = async () => {
@@ -140,9 +142,10 @@ export function QueuePanel({ isOpen, onClose }: QueuePanelProps) {
             const playlist = await createPlaylist(name);
             await addToPlaylist(playlist.id, queue.map(s => s.id));
             queryClient.invalidateQueries({ queryKey: ['playlists'] });
-            alert(`Saved as "${name}"`);
+            useToastStore.getState().addToast(`Saved as "${name}"`, 'success');
         } catch (error) {
             console.error('Failed to save queue as playlist:', error);
+            useToastStore.getState().addToast('Failed to save playlist', 'error');
         } finally {
             setIsSaving(false);
         }

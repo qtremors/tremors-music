@@ -5,19 +5,14 @@ from logging.handlers import RotatingFileHandler
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from database import create_db_and_tables
+from database import create_db_and_tables, get_app_dir
 from router import library, stream, media, playlists
 
 # --- Logging Setup ---
 def setup_logging():
     """Configure file-based logging for production."""
     # Get the directory where the executable is located
-    if getattr(sys, 'frozen', False):
-        # Running as compiled executable
-        app_dir = os.path.dirname(sys.executable)
-    else:
-        # Running as script
-        app_dir = os.path.dirname(os.path.abspath(__file__))
+    app_dir = get_app_dir()
     
     log_dir = os.path.join(app_dir, 'logs')
     os.makedirs(log_dir, exist_ok=True)
@@ -65,7 +60,12 @@ app = FastAPI(lifespan=lifespan)
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:5173",  # Frontend Dev
+        "http://127.0.0.1:8000",  # Backend Dev
+        "tauri://localhost",      # Tauri Production (Windows)
+        "https://tauri.localhost" # Tauri Production (macOS/Linux)
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -80,4 +80,4 @@ app.include_router(playlists.router)
 
 @app.get("/")
 def read_root():
-    return {"message": "Tremors Music Backend is Ready 🎵", "version": "1.5.0"}
+    return {"message": "Tremors Music Backend is Ready 🎵", "version": "2.0.2"}
