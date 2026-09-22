@@ -1,0 +1,13 @@
+[package]
+name = "tremors-music"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "A local-first native Windows and Linux music player built with Rust and GPUI"
+
+[dependencies]
+tremors-core = { path = "../core" }
+anyhow.workspace = true
+log.workspace = true
