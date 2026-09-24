@@ -4,4 +4,5 @@
 pub mod library;
 pub mod model;
 pub mod queue;
+pub mod scanner;
 pub mod settings;

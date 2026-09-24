@@ -1,10 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright (C) 2025-2026 Tremors and contributors
 
-use std::{collections::HashSet, path::Path};
+use std::{
+    collections::HashSet,
+    path::Path,
+    sync::atomic::{AtomicBool, Ordering},
+};
 use tremors_core::{
     library::Library,
     model::Song,
+    scanner,
     settings::{Preferences, RepeatMode},
 };
 
@@ -18,6 +23,20 @@ fn track(root: &Path, name: &str) -> Song {
         duration: 1.,
         ..Default::default()
     }
+}
+
+fn wav(path: &Path) {
+    let spec = hound::WavSpec {
+        channels: 1,
+        sample_rate: 8000,
+        bits_per_sample: 16,
+        sample_format: hound::SampleFormat::Int,
+    };
+    let mut writer = hound::WavWriter::create(path, spec).unwrap();
+    for _ in 0..8000 {
+        writer.write_sample(100_i16).unwrap();
+    }
+    writer.finalize().unwrap();
 }
 
 #[test]
@@ -179,3 +198,82 @@ fn preferences_survive_reopening() {
     assert_eq!(prefs.repeat, RepeatMode::One);
 }
 
+#[test]
+fn scanner_reads_real_audio_and_keeps_corrupt_paths_seen() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().join("music");
+    std::fs::create_dir(&root).unwrap();
+    wav(&root.join("Track.WAV"));
+    std::fs::write(root.join("bad.mp3"), "not audio").unwrap();
+    std::fs::write(root.join("ignored.wma"), "not supported").unwrap();
+    let cancel = AtomicBool::new(false);
+    let mut last = None;
+    let scan = scanner::scan(&root, &temp.path().join("covers"), &cancel, |p| {
+        last = Some(p)
+    })
+    .unwrap();
+    assert_eq!(scan.songs.len(), 1);
+    assert_eq!(scan.songs[0].title, "Track");
+    assert!((scan.songs[0].duration - 1.).abs() < 0.01);
+    assert_eq!(scan.seen.len(), 2);
+    assert_eq!(scan.warnings.len(), 1);
+    assert_eq!(last.unwrap().skipped, 1);
+    assert!(scan.can_prune);
+    assert!(!scan.cancelled);
+}
+
+#[test]
+fn cancellation_does_not_return_a_completed_scan() {
+    let temp = tempfile::tempdir().unwrap();
+    let cancel = AtomicBool::new(true);
+    wav(&temp.path().join("track.wav"));
+    let scan = scanner::scan(temp.path(), &temp.path().join("covers"), &cancel, |_| {}).unwrap();
+    assert!(scan.cancelled);
+    assert!(scan.songs.is_empty());
+    cancel.store(false, Ordering::Relaxed);
+    assert!(scanner::scan(&temp.path().join("missing"), temp.path(), &cancel, |_| {}).is_err());
+}
+
+#[test]
+fn wav_decoding_and_seeking_use_the_actual_playback_decoder() {
+    use rodio::Source;
+    let temp = tempfile::tempdir().unwrap();
+    let path = temp.path().join("audio.wav");
+    wav(&path);
+    let mut source = rodio::Decoder::try_from(std::fs::File::open(path).unwrap()).unwrap();
+    assert_eq!(source.total_duration().unwrap().as_secs(), 1);
+    assert!(source.next().unwrap() > 0.);
+    source
+        .try_seek(std::time::Duration::from_millis(500))
+        .unwrap();
+    assert!(source.count() > 0);
+}
+
+#[test]
+fn unreadable_tracks_seen_during_rescan_keep_existing_user_data() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().join("music");
+    std::fs::create_dir(&root).unwrap();
+    let path = root.join("track.wav");
+    wav(&path);
+    let mut library = Library::open(&temp.path().join("library.sqlite")).unwrap();
+    let cancel = AtomicBool::new(false);
+    let first = scanner::scan(&root, &temp.path().join("covers"), &cancel, |_| {}).unwrap();
+    library
+        .apply_scan(&root, &first.songs, &first.seen, first.can_prune)
+        .unwrap();
+    let id = library.snapshot().unwrap().songs[0].id;
+    library.favorite(id).unwrap();
+    library.played(id).unwrap();
+    std::fs::write(path, "temporarily unreadable audio").unwrap();
+    let second = scanner::scan(&root, &temp.path().join("covers"), &cancel, |_| {}).unwrap();
+    assert_eq!(second.warnings.len(), 1);
+    assert!(second.songs.is_empty());
+    library
+        .apply_scan(&root, &second.songs, &second.seen, second.can_prune)
+        .unwrap();
+    let song = library.snapshot().unwrap().songs.remove(0);
+    assert_eq!(song.id, id);
+    assert!(song.favorite);
+    assert_eq!(song.play_count, 1);
+}
