@@ -3,6 +3,13 @@
 These balanced source checkpoints were reconstructed on 2026-10-20.
 The complete desktop application and locked dependency graph are assembled at 0.1.0.
 
+## [0.0.3] - 2026-10-20
+
+- **Audio Playback:** Added the audio worker, streaming decoding, pause and resume, seeking, volume, and device-error recovery.
+- **Queue Management:** Added duplicate-safe ordering, Play next, reordering, shuffle, repeat, and saved-session restoration.
+- **Lyric Timing:** Added LRC timestamp parsing, offsets, multiple timestamps, and active-line selection.
+- **ReplayGain:** Added track-gain calculation with peak limiting and invalid-tag handling.
+
 ## [0.0.2] - 2026-10-20
 
 - **Music Scanning:** Added local metadata extraction, supported-format detection, and embedded artwork caching.

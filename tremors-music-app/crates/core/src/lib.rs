@@ -2,7 +2,9 @@
 // Copyright (C) 2025-2026 Tremors and contributors
 
 pub mod library;
+pub mod lyrics;
 pub mod model;
+pub mod playback;
 pub mod queue;
 pub mod scanner;
 pub mod settings;
