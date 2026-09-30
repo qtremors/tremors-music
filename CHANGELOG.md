@@ -3,6 +3,13 @@
 These balanced source checkpoints were reconstructed on 2026-10-20.
 The complete desktop application and locked dependency graph are assembled at 0.1.0.
 
+## [0.0.4] - 2026-10-20
+
+- **Library Worker:** Added background commands and events for scanning, playlists, preferences, and playback-state persistence.
+- **Folder Watching:** Added recursive watches, debounced incremental scans, scan cancellation, and folder relocation commands.
+- **Browsing Models:** Added window-independent library projections, search ranking, sorting, and playlist and queue row identities.
+- **Worker Recovery:** Added checks for command failures, scan progress, and cancellation followed by another scan.
+
 ## [0.0.3] - 2026-10-20
 
 - **Audio Playback:** Added the audio worker, streaming decoding, pause and resume, seeking, volume, and device-error recovery.
