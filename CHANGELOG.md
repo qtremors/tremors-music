@@ -3,6 +3,13 @@
 These balanced source checkpoints were reconstructed on 2026-10-20.
 The complete desktop application and locked dependency graph are assembled at 0.1.0.
 
+## [0.0.5] - 2026-10-20
+
+- **Desktop Foundation:** Added GPUI window setup, application state, worker-event handling, and navigation source modules.
+- **Playback Coordination:** Connected queue selection, playback transitions, saved positions, and parsed lyric caching.
+- **Startup Diagnostics:** Added local logging, panic reporting, native error dialogs, and application resources.
+- **Input:** Added folder-picker handling and desktop keyboard-action definitions.
+
 ## [0.0.4] - 2026-10-20
 
 - **Library Worker:** Added background commands and events for scanning, playlists, preferences, and playback-state persistence.
