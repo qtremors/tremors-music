@@ -3,6 +3,13 @@
 These balanced source checkpoints were reconstructed on 2026-10-20.
 The complete desktop application and locked dependency graph are assembled at 0.1.0.
 
+## [0.0.6] - 2026-10-20
+
+- **Library Views:** Added song lists, album and artist galleries, genres, favorites, recently added, and most-played views.
+- **Search And Sorting:** Added search and sort controls, grouped search results, and album and artist navigation.
+- **Playlists And Queues:** Added sidebar workflows, row menus, duplicate-entry actions, and drag-and-drop reordering.
+- **Folder Management:** Added folder views, relocation and removal dialogs, scan diagnostics, and confirmation overlays.
+
 ## [0.0.5] - 2026-10-20
 
 - **Desktop Foundation:** Added GPUI window setup, application state, worker-event handling, and navigation source modules.
