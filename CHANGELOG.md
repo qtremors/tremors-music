@@ -3,6 +3,12 @@
 These balanced source checkpoints were reconstructed on 2026-10-20.
 The complete desktop application and locked dependency graph are assembled at 0.1.0.
 
+## [0.0.7] - 2026-10-20
+
+- **Player Controls:** Added the complete transport bar, seek and volume sliders, shuffle, repeat, and playback shortcuts.
+- **Lyrics Views:** Added plain and timed lyric presentation, active-line highlighting, automatic scrolling, and line seeking.
+- **Fullscreen Player:** Added artwork, track information, lyrics, and controls in an immersive layout.
+
 ## [0.0.6] - 2026-10-20
 
 - **Library Views:** Added song lists, album and artist galleries, genres, favorites, recently added, and most-played views.

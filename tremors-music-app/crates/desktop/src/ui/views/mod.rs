@@ -4,8 +4,10 @@
 //! Desktop composition. Feature views live in sibling modules.
 
 mod folders;
+mod fullscreen;
 mod header;
 mod library;
+mod lyrics;
 mod overlays;
 mod player;
 mod rows;
@@ -20,7 +22,7 @@ impl Render for MusicApp {
         let sidebar = self.render_sidebar(window, cx);
         let player = self.render_player(cx);
         let overlay = self.render_overlay(cx);
-        let immersive: Option<AnyElement> = None;
+        let immersive = self.render_fullscreen(cx);
 
         div()
             .size_full()

@@ -174,6 +174,9 @@ pub fn run() -> anyhow::Result<()> {
                 KeyBinding::new("down", VolumeDown, Some("Player && !Input")),
                 KeyBinding::new("ctrl-m", Mute, Some("Player && !Input")),
                 KeyBinding::new("ctrl-q", ShowQueue, Some("Player && !Input")),
+                KeyBinding::new("ctrl-l", ShowLyrics, Some("Player && !Input")),
+                KeyBinding::new("ctrl-f", Fullscreen, Some("Player && !Input")),
+                KeyBinding::new("f11", Fullscreen, Some("Player")),
                 KeyBinding::new("alt-left", Back, Some("Player && !Input")),
                 KeyBinding::new("escape", Escape, Some("Player")),
             ]);
