@@ -3,6 +3,13 @@
 These balanced source checkpoints were reconstructed on 2026-10-20.
 The complete desktop application and locked dependency graph are assembled at 0.1.0.
 
+## [0.0.8] - 2026-10-20
+
+- **Appearance Settings:** Added controls for light and dark themes, seven accents, and song-list artwork visibility.
+- **Library Preferences:** Added folder-watching and ReplayGain options, artwork cleanup, and library reset controls.
+- **Desktop Integration:** Added Windows SMTC and Linux MPRIS publication for current-track metadata and playback state.
+- **Regression Coverage:** Added checks for saved sessions, folder updates, relocation, embedded lyrics, ReplayGain, and artwork cleanup.
+
 ## [0.0.7] - 2026-10-20
 
 - **Player Controls:** Added the complete transport bar, seek and volume sliders, shuffle, repeat, and playback shortcuts.

@@ -7,7 +7,7 @@ use super::*;
 
 impl MusicApp {
     pub(in crate::ui) fn new(paths: AppPaths, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let (media, media_rx) = (None, mpsc::channel().1);
+        let (media, media_rx) = crate::media::open(window);
         let library = service::spawn(paths.clone());
         let audio = audio::spawn();
         let search =
@@ -339,6 +339,21 @@ impl MusicApp {
         }
         let song = self.queue.current();
         let id = song.map(|s| s.id);
+        if let Some(media) = &mut self.media {
+            if id != self.media_song {
+                crate::media::metadata(media, song);
+                self.media_song = id;
+            }
+            let status = (
+                song.is_some(),
+                self.is_playing,
+                self.position.max(0.) as u64,
+            );
+            if status != self.media_status {
+                crate::media::playback(media, song.is_some(), self.is_playing, self.position);
+                self.media_status = status;
+            }
+        }
         if self.initialized && self.is_playing && self.saved_at.elapsed() >= Duration::from_secs(5)
         {
             self.persist_queue();

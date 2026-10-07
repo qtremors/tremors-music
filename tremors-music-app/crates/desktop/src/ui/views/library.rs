@@ -7,7 +7,9 @@ use super::*;
 
 impl MusicApp {
     pub(in crate::ui) fn render_content(&mut self, cx: &mut Context<Self>) -> AnyElement {
-        if self.page == Page::Lyrics {
+        if self.page == Page::Settings {
+            self.render_settings(cx)
+        } else if self.page == Page::Lyrics {
             self.render_lyrics(cx)
         } else if self.page == Page::Folders {
             self.render_folders(cx)

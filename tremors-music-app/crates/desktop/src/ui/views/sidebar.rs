@@ -50,6 +50,7 @@ impl MusicApp {
             ("Most played", Page::MostPlayed, IconName::TrendingUp),
             ("Queue", Page::Queue, IconName::ListMusic),
             ("Music folders", Page::Folders, IconName::Folder),
+            ("Settings", Page::Settings, IconName::Settings),
         ] {
             sidebar = sidebar.child(
                 div()

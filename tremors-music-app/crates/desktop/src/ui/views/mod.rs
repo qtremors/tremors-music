@@ -11,6 +11,7 @@ mod lyrics;
 mod overlays;
 mod player;
 mod rows;
+mod settings;
 mod sidebar;
 
 use super::*;
