@@ -3,6 +3,13 @@
 These balanced source checkpoints were reconstructed on 2026-10-20.
 The complete desktop application and locked dependency graph are assembled at 0.1.0.
 
+## [0.0.9] - 2026-10-20
+
+- **Windows Packaging:** Added per-user installer and portable ZIP tooling and shader compilation scripts.
+- **Linux Packaging:** Added native archive packaging and a desktop launcher.
+- **Source And Integrity:** Added corresponding-source archives, dependency notices, and SHA-256 checksum generation.
+- **Website:** Added the static product site with responsive layouts, FAQs, privacy information, and GitHub release statistics.
+
 ## [0.0.8] - 2026-10-20
 
 - **Appearance Settings:** Added controls for light and dark themes, seven accents, and song-list artwork visibility.
