@@ -14,7 +14,7 @@ $payload = (Resolve-Path -LiteralPath $PayloadDirectory).Path
 if ([System.IO.Path]::GetFileName($SourceArchiveName) -ne $SourceArchiveName) {
     throw 'SourceArchiveName must be a filename alongside the installer.'
 }
-$required = @('tremors-music.exe', 'LICENSE.md', 'README.md', 'DEVELOPMENT.md', 'CHANGELOG.md', 'TASKS.md', 'PRIVACY.md', 'NSIS-LICENSES.txt')
+$required = @('tremors-music.exe', 'LICENSE.md', 'NSIS-LICENSES.txt')
 foreach ($file in $required) {
     if (-not (Test-Path -LiteralPath (Join-Path $payload $file) -PathType Leaf)) {
         throw "Missing installer file: $file"

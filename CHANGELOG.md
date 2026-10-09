@@ -1,7 +1,26 @@
 # Tremors Music Changelog
 
-These balanced source checkpoints were reconstructed on 2026-10-20.
-The complete desktop application and locked dependency graph are assembled at 0.1.0.
+## [0.1.0] - 2026-10-10
+
+- **Native Desktop App:** Added a native Rust GPUI application for Windows and Linux.
+- **Music Library:** Browse songs, albums, artists, genres, favorites, recently added, and most played, with global search and sorting.
+- **Folders:** Scan incrementally, watch for changes, cancel scans, relocate folders, and clean unused artwork without modifying music files.
+- **Queues And Playlists:** Save queues and positions, play next, preserve duplicate entries, and reorder tracks with buttons or drag-and-drop. Reopening restores playback paused.
+- **Lyrics And Appearance:** Read local plain and timed lyrics, seek by lyric line, use fullscreen playback, and choose light or dark themes and accents.
+- **Desktop Playback:** Added ReplayGain with peak limiting, Windows media controls, and Linux MPRIS integration.
+- **Fresh Library:** Use `Tremors Music` and `library.sqlite3` for a new local library.
+- **Windows Distribution:** Embedded release shaders, reduced executable size, removed an unnecessary ICU import, and added startup error dialogs and local diagnostic logs.
+- **Packages:** Added a minimal per-user Windows installer with the app and license/source notices, smaller portable Windows ZIP, native Linux archives, separate matching source downloads with dependency notices, and SHA-256 checksums.
+- **Documentation:** Consolidated development, testing, and verification status in root documents, added Linux build and installation instructions for Debian/Ubuntu, Arch, and Fedora, summarized earlier releases, retained a dedicated privacy policy, and included the complete GPL text in `LICENSE.md`.
+- **Website:** Added a single music-focused landing page with an OLED black design, credits, FAQs, and live GitHub release information, stars, forks, and download counts.
+- **Developer Credits:** Added the Tremors avatar to the website and removed its white bottom edge.
+- **Version Labels:** Keep the app's displayed version, Windows executable resources, and package names aligned with Cargo.
+
+The native application uses GNU GPL v3 only.
+
+---
+
+The 0.0.x entries below document source checkpoints reconstructed on 2026-10-20, including platform sources and dependency-lock records distributed across the commits. The complete desktop application and locked dependency graph are assembled at 0.1.0, which retains its original release date above.
 
 ## [0.0.9] - 2026-10-20
 
@@ -63,3 +82,17 @@ The complete desktop application and locked dependency graph are assembled at 0.
 - **Rust Foundation:** Established the Rust 2024 workspace, pinned toolchain, shared models, and desktop scaffold.
 - **Local Library:** Added SQLite storage, local data paths, preferences, favorites, play counts, and playlist persistence.
 - **Data Integrity:** Preserved duplicate playlist entries and added persistence regression tests.
+
+## Earlier Releases
+
+Tremors Music began as a FastAPI and React application, was adapted into a Tauri desktop application, and was later rewritten in Rust with GPUI. The Rust edition restarts versioning at 0.1.0. The milestones below belong to the earlier web and Tauri editions.
+
+Earlier releases introduced local scanning and metadata, multi-format playback, shuffle and repeat, smart playlists, synced local lyrics, and a fullscreen player. Later updates improved album and artist views, context menus, lazy artwork loading, and playback stability.
+
+The desktop edition added Tauri packaging with a bundled Python backend, custom branding, and Windows installers. Follow-up updates improved scan cancellation, queue synchronization, lyrics rendering, background resource use, accessibility, startup reliability, and security.
+
+- **1.0.0 - FastAPI And React:** Established local library scanning, metadata, playback controls, browsing, playlists, timed lyrics, themes, and fullscreen playback.
+- **1.5.0 - Library And Lyrics Improvements:** Improved album and artist context menus, lazy artwork loading, local-only lyrics, and fullscreen playback stability.
+- **2.0.0 - Tauri Desktop Edition:** Added a Tauri shell around the React interface and bundled Python backend, with Windows installers and application branding.
+- **2.0.1 - Playback And Desktop Reliability:** Improved background resource use and lyric rendering; corrected backend startup, scan cancellation, lyric loading feedback, and shuffled queue synchronization; tightened local API and desktop security settings.
+- **2.0.2 - Library Management And Polish:** Added folder path editing and unused artwork cleanup; improved scanner polling, lyric detection, playback state consistency, notifications, and accessibility labels.

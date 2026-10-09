@@ -27,7 +27,7 @@ trap 'rm -rf -- "$staging"' EXIT
 mkdir "$staging/$name"
 target_directory=${CARGO_TARGET_DIR:-target}
 install -m 755 "$target_directory/$profile/tremors-music" "$staging/$name/tremors-music"
-cp "$repository_root/"{LICENSE.md,README.md,DEVELOPMENT.md,CHANGELOG.md,TASKS.md,PRIVACY.md} "$staging/$name/"
+cp "$repository_root/"{LICENSE.md,README.md,DEVELOPMENT.md,RELEASES.md,CHANGELOG.md,TASKS.md,PRIVACY.md} "$staging/$name/"
 cp "$repository_root/assets/TremorsMusic.png" "$staging/$name/tremorsmusic.png"
 # Ship the exact local source, including new files and uncommitted edits.
 git -C "$repository_root" ls-files --cached --others --exclude-standard -z > "$staging/source-candidates"

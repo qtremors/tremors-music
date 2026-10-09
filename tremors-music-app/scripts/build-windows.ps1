@@ -38,7 +38,7 @@ try {
     New-Item -ItemType Directory -Path $destination -Force | Out-Null
     $executable = Join-Path $metadata.target_directory "x86_64-pc-windows-msvc\$profileName\tremors-music.exe"
     Copy-Item -LiteralPath $executable -Destination $destination
-    foreach ($document in @('LICENSE.md', 'README.md', 'DEVELOPMENT.md', 'CHANGELOG.md', 'TASKS.md', 'PRIVACY.md')) {
+    foreach ($document in @('LICENSE.md', 'README.md', 'DEVELOPMENT.md', 'RELEASES.md', 'CHANGELOG.md', 'TASKS.md', 'PRIVACY.md')) {
         Copy-Item -LiteralPath (Join-Path $repositoryRoot $document) -Destination $destination
     }
     Copy-Item -LiteralPath (Join-Path $appRoot 'installer/licenses/NSIS.txt') -Destination (Join-Path $destination 'NSIS-LICENSES.txt')
