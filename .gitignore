@@ -1,54 +1,33 @@
-# --- Global ---
-.DS_Store
+# Rust and local distribution output
+/tremors-music-app/target/
+/tremors-music-app/dist/
+/tremors-music-app/vendor/
+
+# Local application data and development overrides
 .env
 .env.local
-
-# --- Backend (Python) ---
-__pycache__/
-*.pyc
-*.pyo
-.venv/
+*.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
+*.sqlite3-journal
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.sqlite-journal
 *.db
-.python-version
-
-# PyInstaller build artifacts
-backend/dist/
-backend/build/
-*.spec.bak
-
-# Logs
-logs/
+*.db-shm
+*.db-wal
+*.db-journal
+/covers/
+/tremors-music-app/covers/
+/logs/
 *.log
+/music_test/
 
-# Artwork cache
-backend/covers/
-
-# --- Frontend (Node/JS) ---
-node_modules/
-dist/
-build/
-
-# Debug logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# ESLint
-eslint-report.json
-
-# --- Tauri ---
-tauri/node_modules/
-tauri/src-tauri/target/
-tauri/src-tauri/binaries/*.exe
-tauri/src-tauri/gen/
-
-# --- Test Data ---
-music_test/
-
-# --- Temp Files ---
-*_output.txt
-
-# --- IDE ---
+# Editor and OS files
+.DS_Store
+Thumbs.db
+desktop.ini
 .idea/
 .vscode/
 *.swp

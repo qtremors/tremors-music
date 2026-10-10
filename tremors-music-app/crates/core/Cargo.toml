@@ -1,0 +1,28 @@
+[package]
+name = "tremors-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+rusqlite = { version = "0.40.2", features = ["bundled"] }
+lofty = "0.25.4"
+walkdir = "2.5"
+notify = "7.0"
+rand = "0.9"
+directories = "6.0"
+dunce = "1.0"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
+rodio = { version = "0.22.2", default-features = false, features = ["flac", "mp3", "mp4", "vorbis", "wav", "symphonia-aac", "symphonia-alac"] }
+
+[target.'cfg(any(windows, target_os = "linux"))'.dependencies]
+rodio = { version = "0.22.2", default-features = false, features = ["playback"] }
+
+[dev-dependencies]
+tempfile = "3.23"
+hound = "3.5"

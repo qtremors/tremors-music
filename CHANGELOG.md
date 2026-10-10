@@ -1,87 +1,27 @@
 # Tremors Music Changelog
 
-> **Project:** Tremors Music  
-> **Version:** 2.0.1  
-> **Last Updated:** 2026-01-14
+## [0.1.0] - 2026-10-10
+
+- **Native Desktop App:** Added a native Rust GPUI application for Windows and Linux.
+- **Music Library:** Browse songs, albums, artists, genres, favorites, recently added, and most played, with global search and sorting.
+- **Folders:** Scan incrementally, watch for changes, cancel scans, relocate folders, and clean unused artwork without modifying music files.
+- **Queues And Playlists:** Save queues and positions, play next, preserve duplicate entries, and reorder tracks with buttons or drag-and-drop. Reopening restores playback paused.
+- **Lyrics And Appearance:** Read local plain and timed lyrics, seek by lyric line, use fullscreen playback, and choose light or dark themes and accents.
+- **Desktop Playback:** Added ReplayGain with peak limiting, Windows media controls, and Linux MPRIS integration.
+- **Fresh Library:** Use `Tremors Music` and `library.sqlite3` for a new local library.
+- **Windows Distribution:** Embedded release shaders, reduced executable size, removed an unnecessary ICU import, and added startup error dialogs and local diagnostic logs.
+- **Packages:** Added a per-user Windows installer, smaller portable Windows ZIP, native Linux archives, separate matching source downloads with dependency notices, and SHA-256 checksums.
+- **Documentation:** Consolidated development, testing, and verification status in root documents, added Linux build and installation instructions for Debian/Ubuntu, Arch, and Fedora, summarized earlier releases, retained a dedicated privacy policy, and included the complete GPL text in `LICENSE.md`.
+- **Website:** Added a single music-focused landing page with an OLED black design, credits, FAQs, and live GitHub release information, stars, forks, and download counts.
+- **Developer Credits:** Added the Tremors avatar to the website and removed its white bottom edge.
+- **Version Labels:** Keep the app's displayed version, Windows executable resources, and package names aligned with Cargo.
+
+The native application uses GNU GPL v3 only.
 
 ---
 
-## [2.0.2] - 2026-01-14
+## Earlier Releases
 
-### Changed
-- **Code Quality** - Standardized API types, deduplicated shuffle logic, and centralized application directory resolution.
-- **Robustness** - Improved synced lyrics detection using regex to prevent false positives on normal bracketed text.
-- **Library Management** - Implemented "Edit Path" functionality in the frontend, connecting it to the existing backend endpoint.
-- **Versioning** - Synced frontend package.json version with the main application version.
-- **UI/UX Polish** - Replaced native `alert()` with modern toast notifications, added progress bar safety guards, and improved accessibility with meaningful image alt text.
-- **Performance** - Refactored scanner polling to use TanStack Query for efficient resource management and automatic cleanup.
-- **Maintenance** - Implemented automated cover image cache cleanup to remove orphaned files.
-- **Code Quality** - Removed redundant state from player store to improve data consistency.
+Earlier releases introduced local scanning and metadata, multi-format playback, shuffle and repeat, smart playlists, synced local lyrics, and a fullscreen player. Later updates improved album and artist views, context menus, lazy artwork loading, and playback stability.
 
-## [2.0.1] - 2025-12-23
-
-### Changed
-- **Resource Throttling** - Progress bar updates are paused when the app is minimized, reducing background CPU usage.
-- **Efficient Lyrics Rendering** - Decoupled sync logic from the main render loop.
-- **Animation Loop** - Switched to `requestAnimationFrame` for smoother visuals and automatic pausing.
-
-### Fixed
-- **Sidecar Integration** - Fixed an issue where the Python backend was not starting with the app.
-- **Installer Size** - Fixed bundling issue where the external backend binary was missing.
-- **Scanner Control** - Fixed issue where stopping a scan only stopped frontend polling; now correctly terminates backend process.
-- **Lyrics UI** - Fixed "Searching..." stuck state by implementing proper loading indicators.
-- **Queue Synchronization** - Fixed desync between shuffled and original queues when adding songs during shuffle.
-
-### Security
-- **Strict CORS** - Restricted origins to `localhost:5173`, `127.0.0.1:8000`, and Tauri protocols; blocked wildcard access.
-- **Content Security Policy** - Enabled strict CSP in `tauri.conf.json` to prevent unauthorized script execution.
-- **Exception Safety** - Replaced bare `except:` clauses to prevent swallowing system interrupts.
-
----
-
-## [2.0.0] - 2025-12-11
-
-### Added
-- **Native Desktop App** - Windows installer with Tauri (Rust shell).
-- **Python Sidecar** - Backend bundled as standalone executable.
-- **Resource Efficiency** - Desktop uses ~70% less memory than the web version.
-- **Proper Branding** - Custom icons and NSIS installer.
-- **New Build Outputs** - `Tremors Music_2.0.0_x64-setup.exe` and `.msi`.
-
-### Changed
-- **Project Structure** - Reorganized into `backend/`, `frontend/`, `tauri/`.
-- **Build System** - Consolidated `npm run build` for full installer creation.
-- **Documentation** - Comprehensive README, ARCHITECTURE, and CONTRIBUTING guides.
-
----
-
-## [1.5.0] - 2025-12-09
-
-### Added
-- **Context Menus** - Added 3-dot menus on Artist and Album detail pages.
-- **Sidebar Component** - Refactored for better maintainability.
-- **Lazy Loading** - Implemented `loading="lazy"` for images to improve memory.
-
-### Changed
-- **Offline-Only Lyrics** - No external fetching, local files only.
-- **Memory Optimization** - Excluded lyrics from main song list API.
-
-### Fixed
-- Critical crash in Full Screen Player initialization.
-- Missing album names in player view.
-- Context menu hover triggers.
-
----
-
-## [1.0.0] - Initial Release
-
-### Added
-- **Core Music Player** - Play, pause, seek, shuffle, repeat.
-- **Library Management** - Local file scanning and ID3 tag extraction.
-- **Multi-format Support** - MP3, FLAC, M4A, WAV, OGG, WMA, AAC.
-- **Smart Playlists** - Favorites, Recently Added, Most Played.
-- **Synced Lyrics** - Time-synchronized LRC format display.
-- **Glassmorphism UI** - Apple Music-inspired design.
-- **Full-screen Player** - Immersive view with large artwork.
-
----
+The desktop edition added Tauri packaging with a bundled Python backend, custom branding, and Windows installers. Follow-up updates improved scan cancellation, queue synchronization, lyrics rendering, background resource use, accessibility, startup reliability, and security.

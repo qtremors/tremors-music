@@ -1,0 +1,26 @@
+[package]
+name = "tremors-music"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "A local-first native Windows and Linux music player built with Rust and GPUI"
+
+[dependencies]
+tremors-core = { path = "../core" }
+anyhow.workspace = true
+log.workspace = true
+gpui-kit = "=0.7.0"
+souvlaki = { version = "0.8.3", default-features = false, features = ["use_zbus"] }
+url = "2.5"
+
+[target.'cfg(windows)'.dependencies]
+rfd = { version = "0.17.2", default-features = false }
+raw-window-handle = "0.6"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+rfd = { version = "0.17.2", default-features = false, features = ["xdg-portal"] }
+
+[build-dependencies]
+embed-resource = "3.0"
