@@ -11,6 +11,11 @@ impl MusicApp {
     }
 
     pub(in crate::ui) fn rebuild(&mut self) {
+        self.artist_collections = if let Page::Artist(artist) = &self.page {
+            artist_albums(&self.snapshot, artist)
+        } else {
+            Vec::new()
+        };
         self.rows = build_rows(
             &self.snapshot,
             &self.page,

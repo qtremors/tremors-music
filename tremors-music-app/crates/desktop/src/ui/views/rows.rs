@@ -6,6 +6,27 @@
 use super::*;
 
 impl MusicApp {
+    fn play_row(
+        &mut self,
+        index: usize,
+        queue_index: Option<usize>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        window.focus(&self.focus, cx);
+        if let Some(qindex) = queue_index {
+            self.queue.select(qindex);
+        } else {
+            let Some(selected) = song_index(&self.rows, index) else {
+                return;
+            };
+            self.queue.replace(self.visible_songs(), selected);
+        }
+        self.load_current();
+        self.rebuild();
+        cx.notify();
+    }
+
     pub(in crate::ui) fn render_row(
         &mut self,
         index: usize,
@@ -24,14 +45,14 @@ impl MusicApp {
             } => div()
                 .id(("group", index))
                 .w_full()
-                .h(px(64.))
+                .h(px(52.))
                 .px_4()
                 .flex()
                 .items_center()
                 .gap_4()
                 .cursor_pointer()
                 .hover(|s| s.bg(cx.theme().muted))
-                .child(cover_element(cover, 44.))
+                .child(cover_element(cover, 36., cx))
                 .child(
                     div()
                         .flex_1()
@@ -64,13 +85,13 @@ impl MusicApp {
                 let mut row = div()
                     .id(("track", index))
                     .w_full()
-                    .h(px(64.))
-                    .px_3()
+                    .h(px(52.))
+                    .px_2()
                     .flex()
                     .items_center()
                     .gap_3()
-                    .border_b_1()
-                    .border_color(cx.theme().border)
+                    .rounded_md()
+                    .when(index.is_multiple_of(2), |s| s.bg(cx.theme().sidebar))
                     .hover(|s| s.bg(cx.theme().muted))
                     .when(playing, |s| s.bg(cx.theme().muted));
                 row = row
@@ -78,47 +99,114 @@ impl MusicApp {
                         Button::new(("play-track", index))
                             .ghost()
                             .small()
-                            .icon(Icon::new(IconName::Play))
+                            .w(px(36.))
+                            .px_0()
+                            .accessibility_label(format!("Play {}", song.title))
+                            .when(playing, |b| {
+                                b.icon(Icon::new(IconName::Volume2).text_color(cx.theme().primary))
+                            })
+                            .when(!playing, |b| {
+                                let number = if matches!(self.page, Page::Album(..)) {
+                                    song.track.unwrap_or(index as u32 + 1)
+                                } else if self.page == Page::Search {
+                                    song_index(&self.rows, index).unwrap_or(index) as u32 + 1
+                                } else {
+                                    index as u32 + 1
+                                };
+                                b.child(
+                                    div()
+                                        .w_full()
+                                        .text_center()
+                                        .text_xs()
+                                        .text_color(cx.theme().muted_foreground)
+                                        .child(number.to_string()),
+                                )
+                            })
                             .tooltip("Play this track")
                             .on_click(cx.listener(move |this, _, window, cx| {
-                                window.focus(&this.focus, cx);
-                                if let Some(qindex) = queue_index {
-                                    this.queue.select(qindex);
-                                } else {
-                                    let Some(selected) = song_index(&this.rows, index) else {
-                                        return;
-                                    };
-                                    this.queue.replace(this.visible_songs(), selected);
-                                }
-                                this.load_current();
-                                cx.notify();
+                                this.play_row(index, queue_index, window, cx);
                             })),
                     )
                     .when(self.preferences.show_artwork, |row| {
-                        row.child(cover_element(song.cover.clone(), 40.))
+                        row.child(cover_element(song.cover.clone(), 36., cx))
                     })
                     .child(
                         div()
+                            .id(("track-title", index))
                             .flex_1()
                             .min_w_0()
+                            .cursor_pointer()
+                            .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
+                                if event.click_count() == 2 {
+                                    this.play_row(index, queue_index, window, cx);
+                                }
+                            }))
                             .child(
                                 div()
                                     .truncate()
                                     .font_weight(FontWeight::MEDIUM)
+                                    .when(playing, |d| d.text_color(cx.theme().primary))
                                     .child(song.title.clone()),
+                            )
+                            .when(
+                                matches!(self.page, Page::Search | Page::Queue | Page::Playlist(_)),
+                                |d| {
+                                    d.child(
+                                        div()
+                                            .truncate()
+                                            .text_xs()
+                                            .text_color(cx.theme().muted_foreground)
+                                            .child(format!("{} · {}", song.artist, song.album)),
+                                    )
+                                },
+                            ),
+                    )
+                    .when(
+                        !matches!(
+                            self.page,
+                            Page::Album(..) | Page::Search | Page::Queue | Page::Playlist(_)
+                        ),
+                        |row| {
+                            let artist = song.artist.clone();
+                            let album = song.album.clone();
+                            let album_artist = song.album_artist.clone();
+                            row.child(
+                                div()
+                                    .id(("track-artist", index))
+                                    .w(px(120.))
+                                    .truncate()
+                                    .text_xs()
+                                    .text_color(cx.theme().muted_foreground)
+                                    .cursor_pointer()
+                                    .child(song.artist.clone())
+                                    .on_click(cx.listener(move |this, _, window, cx| {
+                                        this.navigate(Page::Artist(artist.clone()), window, cx)
+                                    })),
                             )
                             .child(
                                 div()
+                                    .id(("track-album", index))
+                                    .w(px(140.))
                                     .truncate()
-                                    .text_sm()
+                                    .text_xs()
                                     .text_color(cx.theme().muted_foreground)
-                                    .child(format!("{} · {}", song.artist, song.album)),
-                            ),
+                                    .cursor_pointer()
+                                    .child(song.album.clone())
+                                    .on_click(cx.listener(move |this, _, window, cx| {
+                                        this.navigate(
+                                            Page::Album(album.clone(), album_artist.clone()),
+                                            window,
+                                            cx,
+                                        )
+                                    })),
+                            )
+                        },
                     )
                     .child(
                         div()
-                            .w(px(48.))
-                            .text_sm()
+                            .w(px(40.))
+                            .text_right()
+                            .text_xs()
                             .text_color(cx.theme().muted_foreground)
                             .child(duration_label(song.duration)),
                     )
@@ -126,8 +214,13 @@ impl MusicApp {
                         Button::new(("favorite", index))
                             .ghost()
                             .small()
-                            .icon(Icon::new(IconName::Heart))
+                            .icon(
+                                Icon::new(IconName::Heart).when(song.favorite, |icon| {
+                                    icon.text_color(cx.theme().primary)
+                                }),
+                            )
                             .selected(song.favorite)
+                            .toggled(song.favorite)
                             .tooltip(if song.favorite {
                                 "Remove favorite"
                             } else {
@@ -135,17 +228,6 @@ impl MusicApp {
                             })
                             .on_click(cx.listener(move |this, _, _, cx| {
                                 this.send_library(LibraryCommand::Favorite(id));
-                                cx.notify();
-                            })),
-                    )
-                    .child(
-                        Button::new(("playlist-add", index))
-                            .ghost()
-                            .small()
-                            .icon(Icon::new(IconName::ListPlus))
-                            .tooltip("Add to playlist")
-                            .on_click(cx.listener(move |this, _, _, cx| {
-                                this.overlay = Some(Overlay::AddToPlaylist(id));
                                 cx.notify();
                             })),
                     );
@@ -205,20 +287,6 @@ impl MusicApp {
                                     this.send_library(LibraryCommand::RemoveEntry(entry))
                                 })),
                         );
-                } else {
-                    row = row.child(
-                        Button::new(("queue-add", index))
-                            .ghost()
-                            .small()
-                            .icon(Icon::new(IconName::Plus))
-                            .tooltip("Add to queue")
-                            .on_click(cx.listener(move |this, _, _, cx| {
-                                this.queue.append((*song).clone());
-                                this.persist_queue();
-                                this.status = "Added to queue.".into();
-                                cx.notify();
-                            })),
-                    );
                 }
                 if let Some(qindex) = queue_index {
                     for (label, delta, icon) in [
@@ -291,6 +359,7 @@ impl MusicApp {
                             "Add to playlist",
                             "Go to album",
                             "Go to artist",
+                            "Edit metadata",
                             "Track details",
                         ] {
                             let view = view.clone();
@@ -299,6 +368,9 @@ impl MusicApp {
                                 move |_, window, cx| {
                                     let _ = view.update(cx, |this, cx| {
                                         match label {
+                                            "Edit metadata" => {
+                                                this.open_metadata(song.id, window, cx)
+                                            }
                                             "Play next" => {
                                                 this.queue.play_next((*song).clone());
                                                 this.persist_queue();
@@ -346,7 +418,8 @@ impl MusicApp {
                     Button::new(("track-menu", index))
                         .ghost()
                         .small()
-                        .label("More")
+                        .icon(Icon::new(IconName::Ellipsis))
+                        .tooltip("Track actions")
                         .dropdown_menu(build_menu.clone()),
                 )
                 .context_menu(build_menu)
@@ -356,15 +429,28 @@ impl MusicApp {
     }
 
     pub(in crate::ui) fn render_card(&self, index: usize, cx: &mut Context<Self>) -> AnyElement {
-        let Some(Row::Group {
+        let Some(row) = self.rows.get(index).cloned() else {
+            return div().flex_1().into_any_element();
+        };
+        self.render_collection_card(row, format!("card-{index}"), cx)
+    }
+
+    pub(in crate::ui) fn render_collection_card(
+        &self,
+        row: Row,
+        key: String,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let Row::Group {
             title,
             subtitle,
             cover,
             page,
-        }) = self.rows.get(index).cloned()
+        } = row
         else {
             return div().into_any_element();
         };
+        let artist = matches!(page, Page::Artist(_));
         let artwork = if let Page::Playlist(id) = page {
             let covers: Vec<_> = self
                 .snapshot
@@ -377,54 +463,67 @@ impl MusicApp {
                 .take(4)
                 .map(|s| s.cover.clone())
                 .collect();
-            if covers.len() > 1 {
+            if covers.len() > 1
+                && !self
+                    .snapshot
+                    .artwork
+                    .contains_key(&format!("playlist:{id}"))
+            {
                 let mut collage = div()
                     .w_full()
-                    .h(px(192.))
+                    .aspect_ratio(1.)
                     .flex()
                     .flex_col()
                     .overflow_hidden()
                     .rounded_lg();
                 for row in 0..2 {
-                    collage = collage.child(div().flex().h(px(96.)).children((0..2).map(|col| {
-                        div().flex_1().overflow_hidden().child(cover_element(
-                            covers
-                                .get(row * 2 + col)
-                                .cloned()
-                                .unwrap_or_else(|| cover.clone()),
-                            96.,
-                        ))
-                    })));
+                    collage =
+                        collage.child(div().flex().flex_1().min_h_0().children((0..2).map(
+                            |col| {
+                                div().flex_1().min_w_0().overflow_hidden().child(
+                                    collection_artwork(
+                                        covers.get(row * 2 + col).cloned().flatten(),
+                                        false,
+                                        cx,
+                                    ),
+                                )
+                            },
+                        )));
                 }
                 collage.into_any_element()
             } else {
-                cover_element(cover, 192.)
+                collection_artwork(cover, false, cx)
             }
         } else {
-            cover_element(cover, 192.)
+            collection_artwork(cover, artist, cx)
         };
         div()
-            .id(("card", index))
+            .id(SharedString::from(key))
             .flex_1()
             .min_w_0()
-            .p_3()
+            .flex()
+            .flex_col()
+            .gap_1()
+            .p_2()
             .rounded_lg()
             .cursor_pointer()
             .hover(|d| d.bg(cx.theme().muted))
+            .active(|d| d.bg(cx.theme().border))
             .child(artwork)
             .child(
                 div()
-                    .mt_3()
+                    .mt_2()
                     .truncate()
-                    .font_weight(FontWeight::SEMIBOLD)
+                    .font_weight(FontWeight::MEDIUM)
+                    .when(artist, |d| d.text_center())
                     .child(title),
             )
             .child(
                 div()
-                    .mt_1()
                     .truncate()
-                    .text_sm()
+                    .text_xs()
                     .text_color(cx.theme().muted_foreground)
+                    .when(artist, |d| d.text_center())
                     .child(subtitle),
             )
             .on_click(

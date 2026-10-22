@@ -21,6 +21,9 @@ pub enum AudioCommand {
     Seek(Duration),
     Volume(f32),
     Stop,
+    /// Release the decoder before replacing a file in the metadata worker.
+    Release(Sender<()>),
+    Fade(f32),
 }
 
 #[derive(Debug)]
@@ -69,6 +72,7 @@ fn worker(rx: Receiver<AudioCommand>, tx: Sender<AudioEvent>) {
     let mut volume = 0.7;
     let mut awaiting_end = false;
     let mut gain = 1.;
+    let mut fade = 1.;
     let (device_tx, device_rx) = mpsc::channel::<String>();
     loop {
         while let Ok(message) = device_rx.try_recv() {
@@ -116,7 +120,7 @@ fn worker(rx: Receiver<AudioCommand>, tx: Sender<AudioEvent>) {
                     let duration = source.total_duration();
                     let p = Player::connect_new(device.as_ref().unwrap().mixer());
                     p.pause();
-                    p.set_volume(volume * gain);
+                    p.set_volume(volume * gain * fade);
                     p.append(source);
                     if start > Duration::ZERO {
                         p.try_seek(start)?;
@@ -161,7 +165,7 @@ fn worker(rx: Receiver<AudioCommand>, tx: Sender<AudioEvent>) {
             Ok(AudioCommand::Volume(v)) => {
                 volume = if v.is_finite() { v.clamp(0., 1.) } else { 0.7 };
                 if let Some(p) = &player {
-                    p.set_volume(volume * gain);
+                    p.set_volume(volume * gain * fade);
                 }
             }
             Ok(AudioCommand::Seek(position)) => {
@@ -174,6 +178,25 @@ fn worker(rx: Receiver<AudioCommand>, tx: Sender<AudioEvent>) {
                         fatal: false,
                     });
                 }
+            }
+            Ok(AudioCommand::Fade(value)) => {
+                fade = if value.is_finite() {
+                    value.clamp(0., 1.)
+                } else {
+                    1.
+                };
+                if let Some(p) = &player {
+                    p.set_volume(volume * gain * fade);
+                }
+            }
+            Ok(AudioCommand::Release(ack)) => {
+                if let Some(p) = player.take() {
+                    p.stop();
+                }
+                // Dropping the stream also drops mixer-owned decoder sources.
+                device = None;
+                awaiting_end = false;
+                let _ = ack.send(());
             }
             Ok(AudioCommand::Stop) => {
                 if let Some(p) = player.take() {
@@ -207,6 +230,9 @@ fn worker(rx: Receiver<AudioCommand>, tx: Sender<AudioEvent>) {
 #[cfg(not(any(windows, target_os = "linux")))]
 fn worker(rx: Receiver<AudioCommand>, tx: Sender<AudioEvent>) {
     while let Ok(command) = rx.recv() {
+        if let AudioCommand::Release(ack) = &command {
+            let _ = ack.send(());
+        }
         if let AudioCommand::Load { generation, .. } = command {
             let _ = tx.send(AudioEvent::Error {
                 generation,

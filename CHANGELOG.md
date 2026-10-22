@@ -1,5 +1,22 @@
 # Tremors Music Changelog
 
+## [Unreleased]
+
+- Added native metadata editing for supported text tags, embedded lyrics, and artwork, with format-specific fields, unsaved-change guards, file conflict checks, and validated atomic saves.
+- Added a sleep timer with optional track completion and a final fade; UTF-8 M3U/M3U8 import/export preserves relative paths, order, and duplicate entries.
+- Added recently played, folder-cover fallback, local artist/playlist artwork overrides, excluded folders, and a minimum-duration filter that preserves library records.
+- Added a true-black OLED theme and reduced-motion preference; refined page, dialog, fullscreen, artwork, hover, and pressed interactions.
+- Kept metadata reading/writing, playlist file handling, timer logic, worker operations, picker requests, and feature views in separate modules.
+
+- Added a local library Home page with recently added albums, albums ranked by play count, and personal playlists.
+- Redesigned the desktop shell with grouped sidebar navigation, a persistent top player, and global library search.
+- Added responsive artwork galleries, circular artist cards, collection headers, and Play and Shuffle actions.
+- Refined song tables with compact alternating rows, linked artist and album columns, current-track highlights, and menus for track actions.
+- Added playlist creation and renaming dialogs, playlist option menus, and page-specific empty states; reorganized appearance and playback settings into sections.
+- Added Albums and Songs views within artist pages, including compilation albums, and scrollbars for long collections.
+- Preserved transport controls and status feedback in fullscreen; opening another page returns to the library layout.
+- Refined light and dark palettes; new libraries use a red accent while saved appearance preferences remain in effect.
+
 ## [0.1.0] - 2026-10-10
 
 - **Native Desktop App:** Added a native Rust GPUI application for Windows and Linux.

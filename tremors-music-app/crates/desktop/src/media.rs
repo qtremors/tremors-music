@@ -43,6 +43,22 @@ pub fn open(window: &Window) -> (Option<MediaControls>, Receiver<MediaControlEve
     (controls, rx)
 }
 
+/// Only fields published to the operating system participate in refresh decisions.
+pub fn revision(song: &Song) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut hash = std::collections::hash_map::DefaultHasher::new();
+    (
+        song.id,
+        &song.title,
+        &song.artist,
+        &song.album,
+        &song.cover,
+        song.duration.to_bits(),
+    )
+        .hash(&mut hash);
+    hash.finish()
+}
+
 pub fn metadata(controls: &mut MediaControls, song: Option<&Song>) {
     let cover = song
         .and_then(|s| s.cover.as_ref())

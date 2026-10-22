@@ -7,8 +7,8 @@ use super::*;
 
 impl MusicApp {
     pub(in crate::ui) fn render_folders(&mut self, cx: &mut Context<Self>) -> AnyElement {
-        let mut body=div().id("folders-content").flex_1().min_h_0().overflow_y_scroll().flex().flex_col().p_6().gap_4()
-            .child(div().text_color(cx.theme().muted_foreground).child("Choose folders containing MP3, FLAC, WAV, Ogg Vorbis, or AAC/ALAC in M4A. Your music files stay untouched."))
+        let mut body=div().id("folders-content").flex_1().min_h_0().overflow_y_scroll().flex().flex_col().px_8().pb_8().gap_4()
+            .child(div().text_color(cx.theme().muted_foreground).child("Choose folders containing MP3, FLAC, WAV, Ogg Vorbis, or AAC/ALAC in M4A. Scanning never changes your music files."))
             .child(div().flex().gap_3()
                 .child(Button::new("folder-add").primary().label(if self.picking_folder {"Choosing folder…"} else {"Add music folder"})
                     .disabled(self.scanning || self.picking_folder).icon(Icon::new(IconName::FolderPlus)).on_click(cx.listener(|this,_,_,cx| {this.pick_folder();cx.notify();})))
@@ -81,6 +81,7 @@ impl MusicApp {
                     ),
             );
         }
+        body = body.child(self.render_filters(cx));
         body = body.child(
             div()
                 .mt_6()
@@ -92,12 +93,12 @@ impl MusicApp {
             body = body.child(
                 div()
                     .font_weight(FontWeight::SEMIBOLD)
-                    .child("Scan warnings"),
+                    .child("Library warnings"),
             );
             for warning in &self.warnings {
                 body = body.child(div().text_sm().child(warning.clone()));
             }
         }
-        body.into_any_element()
+        body.overflow_y_scrollbar().into_any_element()
     }
 }

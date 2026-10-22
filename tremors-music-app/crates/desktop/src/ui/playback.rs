@@ -26,6 +26,9 @@ impl MusicApp {
     }
 
     pub(in crate::ui) fn load_current_at(&mut self, position: f64) {
+        if self.metadata_busy() {
+            return;
+        }
         if let Some(song) = self.queue.current().cloned() {
             self.generation += 1;
             self.position = position.max(0.).min(song.duration.max(0.));
@@ -51,6 +54,9 @@ impl MusicApp {
     }
 
     pub(in crate::ui) fn toggle(&mut self) {
+        if self.metadata_busy() {
+            return;
+        }
         if self.loading {
             return;
         }
@@ -74,6 +80,9 @@ impl MusicApp {
     }
 
     pub(in crate::ui) fn next(&mut self) {
+        if self.metadata_busy() {
+            return;
+        }
         if self.queue.next(false).is_some() {
             self.load_current();
         }
@@ -81,6 +90,9 @@ impl MusicApp {
     }
 
     pub(in crate::ui) fn previous(&mut self) {
+        if self.metadata_busy() {
+            return;
+        }
         if self.position > 3. && !self.ended {
             self.send_audio(AudioCommand::Seek(Duration::ZERO));
             self.position = 0.;
@@ -111,6 +123,9 @@ impl MusicApp {
     }
 
     pub(in crate::ui) fn seek_to(&mut self, seconds: f64) {
+        if self.metadata_busy() {
+            return;
+        }
         if self.queue.current().is_none() {
             return;
         }
@@ -164,6 +179,7 @@ impl MusicApp {
 
     pub(in crate::ui) fn fullscreen(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.immersive = !self.immersive;
+        self.page_revision += 1;
         self.lyric_index = None;
         window.toggle_fullscreen();
         cx.notify();

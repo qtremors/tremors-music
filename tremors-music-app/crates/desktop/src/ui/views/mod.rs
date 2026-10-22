@@ -3,11 +3,14 @@
 
 //! Desktop composition. Feature views live in sibling modules.
 
+mod filters;
 mod folders;
 mod fullscreen;
 mod header;
+mod home;
 mod library;
 mod lyrics;
+mod metadata;
 mod overlays;
 mod player;
 mod rows;
@@ -18,12 +21,27 @@ use super::*;
 
 impl Render for MusicApp {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.gallery_columns = ((f32::from(window.viewport_size().width) - 272.) / 192.)
+            .floor()
+            .clamp(3., 6.) as usize;
         let header = self.render_header(cx);
         let content = self.render_content(cx);
+        let content = div().flex_1().min_h_0().flex().flex_col().child(content);
+        let content = motion::enter(
+            content,
+            ("page-enter", self.page_revision),
+            self.preferences.reduce_motion,
+        );
         let sidebar = self.render_sidebar(window, cx);
         let player = self.render_player(cx);
         let overlay = self.render_overlay(cx);
-        let immersive = self.render_fullscreen(cx);
+        let immersive = self.render_fullscreen(window, cx).map(|content| {
+            motion::enter(
+                div().flex_1().min_h_0().flex().flex_col().child(content),
+                "fullscreen-enter",
+                self.preferences.reduce_motion,
+            )
+        });
 
         div()
             .size_full()
@@ -73,18 +91,13 @@ impl Render for MusicApp {
             }))
             .on_action(cx.listener(|this, _: &Fullscreen, window, cx| this.fullscreen(window, cx)))
             .on_action(cx.listener(|this, _: &Back, window, cx| {
-                if let Some(page) = this.history.pop() {
-                    this.page = page;
-                    this.query.clear();
-                    this.search
-                        .update(cx, |input, cx| input.set_value("", window, cx));
-                    this.rebuild();
-                    cx.notify();
-                }
+                this.go_back(window, cx);
             }))
             .on_action(cx.listener(|this, _: &FocusSearch, window, cx| {
                 this.navigate(Page::Search, window, cx);
-                this.search.update(cx, |input, cx| input.focus(window, cx));
+                if this.page == Page::Search {
+                    this.search.update(cx, |input, cx| input.focus(window, cx));
+                }
             }))
             .on_action(cx.listener(|this, _: &Escape, window, cx| {
                 this.overlay = None;
@@ -102,6 +115,7 @@ impl Render for MusicApp {
                             .min_w_0()
                             .flex()
                             .flex_col()
+                            .child(player)
                             .child(header)
                             .child(content)
                             .child(
@@ -151,7 +165,6 @@ impl Render for MusicApp {
                 )
             })
             .children(immersive)
-            .child(player)
             .children(overlay)
     }
 }

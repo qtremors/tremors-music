@@ -52,6 +52,24 @@ pub fn scan_cached(
     covers: &Path,
     cancel: &AtomicBool,
     existing: &[Song],
+    progress: impl FnMut(ScanProgress),
+) -> Result<ScanResult> {
+    scan_cached_filtered(
+        root,
+        covers,
+        cancel,
+        existing,
+        &crate::settings::Preferences::default(),
+        progress,
+    )
+}
+
+pub fn scan_cached_filtered(
+    root: &Path,
+    covers: &Path,
+    cancel: &AtomicBool,
+    existing: &[Song],
+    preferences: &crate::settings::Preferences,
     mut progress: impl FnMut(ScanProgress),
 ) -> Result<ScanResult> {
     let existing: HashMap<_, _> = existing.iter().map(|s| (s.path.as_path(), s)).collect();
@@ -60,13 +78,31 @@ pub fn scan_cached(
     }
     let mut result = ScanResult {
         songs: Vec::new(),
-        seen: HashSet::new(),
+        seen: existing
+            .values()
+            .filter(|s| {
+                preferences
+                    .excluded_folders
+                    .iter()
+                    .any(|p| s.path.starts_with(p))
+            })
+            .map(|s| s.path.clone())
+            .collect(),
         warnings: Vec::new(),
         can_prune: true,
         cancelled: false,
     };
     let mut status = ScanProgress::default();
-    for entry in WalkDir::new(root).follow_links(false) {
+    for entry in WalkDir::new(root)
+        .follow_links(false)
+        .into_iter()
+        .filter_entry(|entry| {
+            !preferences
+                .excluded_folders
+                .iter()
+                .any(|p| entry.path().starts_with(p))
+        })
+    {
         if cancel.load(Ordering::Relaxed) {
             result.cancelled = true;
             break;
@@ -98,6 +134,7 @@ pub fn scan_cached(
                 && modified > 0
                 && s.details.modified_ns == modified
                 && s.details.sidecar_modified_ns == sidecar
+                && s.details.folder_art_stamp == folder_art_stamp(&path)
                 && s.cover.as_ref().is_none_or(|p| p.exists())
         }) {
             status.skipped += 1;
@@ -129,7 +166,11 @@ pub fn scan_cached(
 pub fn read_song(path: &Path, covers: &Path) -> Result<Song> {
     let tagged = lofty::read_from_path(path).with_context(|| "Could not read audio metadata")?;
     let props = tagged.properties();
-    let tag = tagged.primary_tag().or_else(|| tagged.first_tag());
+    let tag = (tagged.file_type() == lofty::file::FileType::Wav)
+        .then(|| tagged.tag(lofty::tag::TagType::Id3v2))
+        .flatten()
+        .or_else(|| tagged.primary_tag())
+        .or_else(|| tagged.first_tag());
     let title = tag
         .and_then(|t| t.title())
         .map(|s| s.into_owned())
@@ -153,8 +194,18 @@ pub fn read_song(path: &Path, covers: &Path) -> Result<Song> {
         .unwrap_or(&artist)
         .to_owned();
     let cover = tag
-        .and_then(|t| t.pictures().first())
-        .and_then(|pic| cache_cover(pic.data(), covers).ok());
+        .and_then(|t| {
+            t.pictures()
+                .iter()
+                .find(|p| p.pic_type() == lofty::picture::PictureType::CoverFront)
+                .or_else(|| t.pictures().first())
+        })
+        .and_then(|pic| cache_cover(pic.data(), covers).ok())
+        .or_else(|| {
+            folder_art(path)
+                .and_then(|art| std::fs::read(art).ok())
+                .and_then(|bytes| cache_cover(&bytes, covers).ok())
+        });
     Ok(Song {
         path: path.to_path_buf(),
         title,
@@ -216,6 +267,7 @@ pub fn read_song(path: &Path, covers: &Path) -> Result<Song> {
                 file_size,
                 modified_ns,
                 sidecar_modified_ns,
+                folder_art_stamp: folder_art_stamp(path),
                 bitrate: props.audio_bitrate(),
                 sample_rate: props.sample_rate(),
                 channels: props.channels(),
@@ -233,19 +285,26 @@ pub fn read_song(path: &Path, covers: &Path) -> Result<Song> {
     })
 }
 
-fn cache_cover(bytes: &[u8], covers: &Path) -> Result<PathBuf> {
+pub(crate) fn cache_cover(bytes: &[u8], covers: &Path) -> Result<PathBuf> {
     use std::hash::{Hash, Hasher};
     let mut hash = std::collections::hash_map::DefaultHasher::new();
     bytes.hash(&mut hash);
     let target = covers.join(format!("{:016x}.png", hash.finish()));
     if !target.exists() {
         std::fs::create_dir_all(covers)?;
-        let image = image::ImageReader::new(std::io::Cursor::new(bytes))
-            .with_guessed_format()?
-            .decode()?;
+        let mut reader =
+            image::ImageReader::new(std::io::Cursor::new(bytes)).with_guessed_format()?;
+        let mut limits = image::Limits::default();
+        limits.max_image_width = Some(16384);
+        limits.max_image_height = Some(16384);
+        limits.max_alloc = Some(128 * 1024 * 1024);
+        reader.limits(limits);
+        let image = reader.decode()?;
+        let mut temporary = tempfile::NamedTempFile::new_in(covers)?;
         image
             .thumbnail(512, 512)
-            .save_with_format(&target, image::ImageFormat::Png)?;
+            .write_to(&mut temporary, image::ImageFormat::Png)?;
+        temporary.persist(&target).map_err(|e| e.error)?;
     }
     Ok(target)
 }
@@ -321,4 +380,32 @@ fn embedded_synced_lyrics(tag: &lofty::tag::Tag) -> Option<String> {
             .collect::<Vec<_>>()
             .join("\n"),
     )
+}
+
+/// Folder images are used when the track has no readable embedded cover.
+fn folder_art(path: &Path) -> Option<PathBuf> {
+    let parent = path.parent()?;
+    [
+        "cover.jpg",
+        "cover.png",
+        "folder.jpg",
+        "folder.png",
+        "cover.jpeg",
+        "folder.jpeg",
+        "Cover.jpg",
+        "Folder.jpg",
+    ]
+    .iter()
+    .map(|name| parent.join(name))
+    .find(|p| p.is_file() && std::fs::metadata(p).is_ok_and(|m| m.len() <= 20 * 1024 * 1024))
+}
+fn folder_art_stamp(path: &Path) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let Some(art) = folder_art(path) else {
+        return 0;
+    };
+    let mut hash = std::collections::hash_map::DefaultHasher::new();
+    art.hash(&mut hash);
+    fingerprint(&art).hash(&mut hash);
+    hash.finish()
 }

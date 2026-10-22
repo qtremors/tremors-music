@@ -136,3 +136,145 @@ fn empty_search_and_missing_playlists_have_no_playable_results() {
         assert!(visible_songs(&results).is_empty());
     }
 }
+
+#[test]
+fn home_shelves_rank_whole_albums_and_keep_album_artists_distinct() {
+    use tremors_core::browsing::home_sections;
+    let snapshot = Snapshot {
+        songs: vec![
+            Song {
+                added_at: 10,
+                play_count: 3,
+                ..song(1, "One", "First")
+            },
+            Song {
+                added_at: 30,
+                play_count: 4,
+                ..song(2, "Two", "First")
+            },
+            Song {
+                added_at: 20,
+                play_count: 6,
+                ..song(3, "Three", "Second")
+            },
+            Song {
+                album: "Unplayed".into(),
+                added_at: 40,
+                ..song(4, "Four", "Third")
+            },
+        ],
+        ..Default::default()
+    };
+    let sections = home_sections(&snapshot);
+    assert_eq!(sections.len(), 2);
+    assert_eq!(sections[0].rows.len(), 3);
+    let pages = |section: usize| {
+        sections[section]
+            .rows
+            .iter()
+            .map(|row| match row {
+                BrowseRow::Group { page, .. } => page.clone(),
+                _ => panic!("home shelves must contain collections"),
+            })
+            .collect::<Vec<_>>()
+    };
+    assert!(
+        pages(0)
+            == vec![
+                BrowsePage::Album("Unplayed".into(), "Third".into()),
+                BrowsePage::Album("Shared album".into(), "First".into()),
+                BrowsePage::Album("Shared album".into(), "Second".into()),
+            ]
+    );
+    assert!(
+        pages(1)
+            == vec![
+                BrowsePage::Album("Shared album".into(), "First".into()),
+                BrowsePage::Album("Shared album".into(), "Second".into()),
+            ]
+    );
+}
+
+#[test]
+fn home_shelves_are_bounded_and_do_not_fabricate_content() {
+    use tremors_core::browsing::home_sections;
+    assert!(home_sections(&Snapshot::default()).is_empty());
+    let snapshot = Snapshot {
+        songs: (0..50)
+            .map(|id| Song {
+                album: format!("Album {id}"),
+                added_at: id,
+                play_count: 1,
+                ..song(id, "Track", "Artist")
+            })
+            .collect(),
+        playlists: vec![Playlist {
+            id: 9,
+            name: "Empty mix".into(),
+            entries: vec![],
+        }],
+        ..Default::default()
+    };
+    let sections = home_sections(&snapshot);
+    assert_eq!(sections.len(), 3);
+    assert_eq!(sections[0].rows.len(), 8);
+    assert_eq!(sections[1].rows.len(), 8);
+    assert_eq!(sections[2].rows.len(), 1);
+    assert!(matches!(
+        &sections[2].rows[0],
+        BrowseRow::Group {
+            page: BrowsePage::Playlist(9),
+            cover: None,
+            ..
+        }
+    ));
+    assert!(
+        build_rows(
+            &snapshot,
+            &BrowsePage::Home,
+            "",
+            &Queue::default(),
+            &Preferences::default()
+        )
+        .is_empty()
+    );
+}
+
+#[test]
+fn artist_album_navigation_includes_compilations_and_excludes_other_performers() {
+    use tremors_core::browsing::artist_albums;
+    let snapshot = Snapshot {
+        songs: vec![
+            Song {
+                album_artist: "Various artists".into(),
+                ..song(1, "Feature", "Guest")
+            },
+            Song {
+                album_artist: "Various artists".into(),
+                ..song(4, "Another performer", "Someone else")
+            },
+            Song {
+                album: "Solo record".into(),
+                ..song(2, "Solo", "Guest")
+            },
+            Song {
+                album: "Different record".into(),
+                ..song(3, "Other", "Someone else")
+            },
+        ],
+        ..Default::default()
+    };
+    let albums = artist_albums(&snapshot, "Guest");
+    assert_eq!(albums.len(), 2);
+    for album in albums {
+        let BrowseRow::Group { page, subtitle, .. } = album else {
+            panic!("expected an album");
+        };
+        if matches!(&page, BrowsePage::Album(_, artist) if artist == "Various artists") {
+            assert!(subtitle.ends_with("2 tracks"));
+        }
+        let tracks = visible_songs(&rows(&snapshot, &page, "", &Queue::default()));
+        assert!(tracks.iter().any(|s| s.artist == "Guest"));
+    }
+    assert!(artist_albums(&snapshot, "Missing").is_empty());
+}

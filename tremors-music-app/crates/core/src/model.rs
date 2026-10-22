@@ -32,6 +32,7 @@ pub struct TrackDetails {
     pub file_size: u64,
     pub modified_ns: u64,
     pub sidecar_modified_ns: u64,
+    pub folder_art_stamp: u64,
     pub bitrate: Option<u32>,
     pub sample_rate: Option<u32>,
     pub channels: Option<u8>,
@@ -75,6 +76,7 @@ pub struct Snapshot {
     pub playlists: Vec<Playlist>,
     pub preferences: crate::settings::Preferences,
     pub session: crate::queue::QueueState,
+    pub artwork: std::collections::BTreeMap<String, PathBuf>,
 }
 
 pub fn now() -> i64 {
@@ -96,4 +98,9 @@ pub fn duration_label(seconds: f64) -> String {
     } else {
         format!("{}:{:02}", seconds / 60, seconds % 60)
     }
+}
+
+/// Format the regular plurals used by library collection labels.
+pub fn count_label(count: usize, noun: &str) -> String {
+    format!("{count} {noun}{}", if count == 1 { "" } else { "s" })
 }

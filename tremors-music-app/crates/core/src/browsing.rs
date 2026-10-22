@@ -2,12 +2,12 @@
 // Copyright (C) 2025-2026 Tremors and contributors
 
 use crate::{
-    model::{Snapshot, Song},
+    model::{Snapshot, Song, count_label},
     queue::Queue,
     settings::{Preferences, SongSort},
 };
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, HashMap, HashSet},
     path::PathBuf,
     sync::Arc,
 };
@@ -52,6 +52,7 @@ pub fn search_rank(song: &Song, query: &str) -> u8 {
 /// Navigation targets shared by browsing state and desktop presentation.
 #[derive(Clone, PartialEq, Eq)]
 pub enum BrowsePage {
+    Home,
     Library,
     Albums,
     Artists,
@@ -64,6 +65,8 @@ pub enum BrowsePage {
     Favorites,
     Recent,
     MostPlayed,
+    RecentlyPlayed,
+    Metadata(i64),
     Playlist(i64),
     Album(String, String),
     Artist(String),
@@ -100,29 +103,7 @@ pub fn build_rows(
     let songs = &snapshot.songs;
     let by_id: HashMap<_, _> = songs.iter().map(|s| (s.id, s)).collect();
     match page {
-        Page::Albums => {
-            let mut groups: BTreeMap<(String, String), Vec<&Song>> = BTreeMap::new();
-            for s in songs {
-                groups
-                    .entry((s.album.clone(), s.album_artist.clone()))
-                    .or_default()
-                    .push(s);
-            }
-            for ((album, artist), songs) in groups {
-                if !format!("{album} {artist}")
-                    .to_lowercase()
-                    .contains(&query.to_lowercase())
-                {
-                    continue;
-                }
-                rows.push(Row::Group {
-                    title: album.clone(),
-                    subtitle: format!("{artist} · {} tracks", songs.len()),
-                    cover: songs.iter().find_map(|s| s.cover.clone()),
-                    page: Page::Album(album, artist),
-                });
-            }
-        }
+        Page::Albums => return album_rows(songs.iter(), query),
         Page::Artists => {
             let mut groups: BTreeMap<String, Vec<&Song>> = BTreeMap::new();
             for s in songs {
@@ -134,8 +115,12 @@ pub fn build_rows(
                 }
                 rows.push(Row::Group {
                     title: artist.clone(),
-                    subtitle: format!("{} tracks", songs.len()),
-                    cover: songs.iter().find_map(|s| s.cover.clone()),
+                    subtitle: count_label(songs.len(), "track"),
+                    cover: snapshot
+                        .artwork
+                        .get(&format!("artist:{artist}"))
+                        .cloned()
+                        .or_else(|| songs.iter().find_map(|s| s.cover.clone())),
                     page: Page::Artist(artist),
                 });
             }
@@ -158,7 +143,7 @@ pub fn build_rows(
                 }
                 rows.push(Row::Group {
                     title: genre.clone(),
-                    subtitle: format!("{} tracks", songs.len()),
+                    subtitle: count_label(songs.len(), "track"),
                     cover: songs.iter().find_map(|s| s.cover.clone()),
                     page: Page::Genre(genre),
                 });
@@ -171,12 +156,23 @@ pub fn build_rows(
                 }
                 rows.push(Row::Group {
                     title: pl.name.clone(),
-                    subtitle: format!("{} tracks", pl.entries.len()),
-                    cover: pl
-                        .entries
-                        .iter()
-                        .filter_map(|e| by_id.get(&e.song_id))
-                        .find_map(|s| s.cover.clone()),
+                    subtitle: count_label(
+                        pl.entries
+                            .iter()
+                            .filter(|e| by_id.contains_key(&e.song_id))
+                            .count(),
+                        "track",
+                    ),
+                    cover: snapshot
+                        .artwork
+                        .get(&format!("playlist:{}", pl.id))
+                        .cloned()
+                        .or_else(|| {
+                            pl.entries
+                                .iter()
+                                .filter_map(|e| by_id.get(&e.song_id))
+                                .find_map(|s| s.cover.clone())
+                        }),
                     page: Page::Playlist(pl.id),
                 });
             }
@@ -249,7 +245,7 @@ pub fn build_rows(
                 }
             }
         }
-        Page::Folders | Page::Settings | Page::Lyrics => {}
+        Page::Home | Page::Folders | Page::Settings | Page::Lyrics | Page::Metadata(_) => {}
         page => {
             let mut selected: Vec<_> = songs
                 .iter()
@@ -257,6 +253,7 @@ pub fn build_rows(
                 .filter(|s| match page {
                     Page::Favorites => s.favorite,
                     Page::MostPlayed => s.play_count > 0,
+                    Page::RecentlyPlayed => s.last_played.is_some(),
                     Page::Album(album, artist) => s.album == *album && s.album_artist == *artist,
                     Page::Artist(artist) => s.artist == *artist,
                     Page::Genre(genre) => {
@@ -267,6 +264,9 @@ pub fn build_rows(
                 .cloned()
                 .collect();
             match page {
+                Page::RecentlyPlayed => {
+                    selected.sort_by_key(|s| std::cmp::Reverse((s.last_played, s.id)))
+                }
                 Page::Recent => selected.sort_by_key(|s| std::cmp::Reverse((s.added_at, s.id))),
                 Page::MostPlayed => selected.sort_by_key(|s| std::cmp::Reverse(s.play_count)),
                 Page::Album(..) => selected
@@ -304,4 +304,110 @@ pub fn song_index(rows: &[BrowseRow], index: usize) -> Option<usize> {
             .filter(|row| matches!(row, BrowseRow::Song { .. }))
             .count()
     })
+}
+
+/// A bounded shelf of local collections for the library home page.
+#[derive(Clone)]
+pub struct HomeSection {
+    pub title: &'static str,
+    pub page: BrowsePage,
+    pub rows: Vec<BrowseRow>,
+}
+
+pub fn home_sections(snapshot: &Snapshot) -> Vec<HomeSection> {
+    let mut albums: BTreeMap<(String, String), Vec<&Song>> = BTreeMap::new();
+    for song in &snapshot.songs {
+        albums
+            .entry((song.album.clone(), song.album_artist.clone()))
+            .or_default()
+            .push(song);
+    }
+    let mut recent = Vec::new();
+    let mut rotation = Vec::new();
+    for ((album, artist), songs) in albums {
+        let row = BrowseRow::Group {
+            title: album.clone(),
+            subtitle: artist.clone(),
+            cover: songs.iter().find_map(|song| song.cover.clone()),
+            page: BrowsePage::Album(album, artist),
+        };
+        let added = songs
+            .iter()
+            .map(|s| (s.added_at, s.id))
+            .max()
+            .unwrap_or_default();
+        let plays: u64 = songs.iter().map(|s| u64::from(s.play_count)).sum();
+        recent.push((added, row.clone()));
+        if plays > 0 {
+            rotation.push((plays, row));
+        }
+    }
+    recent.sort_by_key(|(added, _)| std::cmp::Reverse(*added));
+    rotation.sort_by_key(|(plays, _)| std::cmp::Reverse(*plays));
+    let mut sections = vec![
+        HomeSection {
+            title: "Recently added",
+            page: BrowsePage::Recent,
+            rows: recent.into_iter().take(8).map(|(_, row)| row).collect(),
+        },
+        HomeSection {
+            title: "In your rotation",
+            page: BrowsePage::MostPlayed,
+            rows: rotation.into_iter().take(8).map(|(_, row)| row).collect(),
+        },
+    ];
+    sections.push(HomeSection {
+        title: "Made by you",
+        page: BrowsePage::Playlists,
+        rows: build_rows(
+            snapshot,
+            &BrowsePage::Playlists,
+            "",
+            &Queue::default(),
+            &Preferences::default(),
+        )
+        .into_iter()
+        .take(8)
+        .collect(),
+    });
+    sections.retain(|section| !section.rows.is_empty());
+    sections
+}
+
+fn album_rows<'a>(songs: impl Iterator<Item = &'a Song>, query: &str) -> Vec<BrowseRow> {
+    let mut groups: BTreeMap<(String, String), Vec<&Song>> = BTreeMap::new();
+    for song in songs {
+        groups
+            .entry((song.album.clone(), song.album_artist.clone()))
+            .or_default()
+            .push(song);
+    }
+    let query = query.to_lowercase();
+    groups
+        .into_iter()
+        .filter(|((album, artist), _)| format!("{album} {artist}").to_lowercase().contains(&query))
+        .map(|((album, artist), songs)| BrowseRow::Group {
+            title: album.clone(),
+            subtitle: format!("{artist} · {}", count_label(songs.len(), "track")),
+            cover: songs.iter().find_map(|song| song.cover.clone()),
+            page: BrowsePage::Album(album, artist),
+        })
+        .collect()
+}
+
+/// Include albums containing the selected performer, including compilation records.
+pub fn artist_albums(snapshot: &Snapshot, artist: &str) -> Vec<BrowseRow> {
+    let albums: HashSet<_> = snapshot
+        .songs
+        .iter()
+        .filter(|song| song.artist == artist)
+        .map(|song| (&song.album, &song.album_artist))
+        .collect();
+    album_rows(
+        snapshot
+            .songs
+            .iter()
+            .filter(|song| albums.contains(&(&song.album, &song.album_artist))),
+        "",
+    )
 }

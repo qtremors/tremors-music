@@ -36,11 +36,58 @@ impl MusicApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        window.focus(&self.focus, cx);
+        if matches!(self.page, Page::Metadata(_))
+            && self.page != page
+            && self.metadata.as_ref().is_some_and(|e| e.dirty || e.saving)
+        {
+            if !self.metadata_busy() {
+                self.overlay = Some(Overlay::DiscardEdits(page, false));
+                cx.notify();
+            }
+            return;
+        }
         if self.page != page {
             self.history.push(self.page.clone());
         }
+        self.show_page(page, window, cx);
+    }
+
+    pub(in crate::ui) fn go_back(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if matches!(self.page, Page::Metadata(_))
+            && self.metadata.as_ref().is_some_and(|e| e.dirty || e.saving)
+        {
+            if !self.metadata_busy()
+                && let Some(page) = self.history.last()
+            {
+                self.overlay = Some(Overlay::DiscardEdits(page.clone(), true));
+                cx.notify();
+            }
+            return;
+        }
+        if let Some(page) = self.history.pop() {
+            self.show_page(page, window, cx);
+        }
+    }
+
+    fn show_page(&mut self, page: Page, window: &mut Window, cx: &mut Context<Self>) {
+        if self.immersive {
+            self.fullscreen(window, cx);
+        }
+        window.focus(&self.focus, cx);
+        let metadata_id = if let Page::Metadata(id) = &page {
+            Some(*id)
+        } else {
+            None
+        };
         self.page = page;
+        self.page_revision += 1;
+        self.metadata = None;
+        if let Some(id) = metadata_id {
+            self.send_library(LibraryCommand::ReadMetadata(id));
+        }
+        self.show_artist_albums = true;
+        self.table_scroll = UniformListScrollHandle::new();
+        self.gallery_scroll = UniformListScrollHandle::new();
         self.query.clear();
         self.overlay = None;
         self.search
@@ -52,19 +99,27 @@ impl MusicApp {
     }
 
     pub(in crate::ui) fn save_playlist(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let name = self.playlist_name.read(cx).value().to_string();
-        if let Page::Playlist(id) = self.page {
+        let name = self.playlist_name.read(cx).value().trim().to_string();
+        if name.is_empty() {
+            return;
+        }
+        if let Some(Overlay::RenamePlaylist(id)) = self.overlay {
             self.send_library(LibraryCommand::RenamePlaylist(id, name));
         } else {
             self.send_library(LibraryCommand::CreatePlaylist(name));
         }
         self.playlist_name
             .update(cx, |input, cx| input.set_value("", window, cx));
+        self.overlay = None;
+        window.focus(&self.focus, cx);
         cx.notify();
     }
 
     pub(in crate::ui) fn title(&self) -> String {
         match &self.page {
+            Page::Metadata(_) => "Edit metadata".into(),
+            Page::RecentlyPlayed => "Recently played".into(),
+            Page::Home => "Home".into(),
             Page::Library => "Songs".into(),
             Page::Albums => "Albums".into(),
             Page::Artists => "Artists".into(),

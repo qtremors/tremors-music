@@ -55,8 +55,8 @@ Code paths are relative to `tremors-music-app/`. See [DEVELOPMENT.md](DEVELOPMEN
 
 - [ ] **UI-002 | Medium | Refresh media metadata after tag edits.**
   - **Location:** `crates/desktop/src/ui/runtime.rs` (`MusicApp::poll`).
-  - **Current:** Metadata is published only when the song ID changes, so same-track tag/artwork updates can leave SMTC/MPRIS stale. Native observations remain outstanding.
-  - **Change:** Compare relevant metadata fields or a revision.
+  - **Current:** The desktop now compares a revision of published metadata fields, including title, artist, album, cover, and duration, and refreshes after editor saves. Native same-track rescan observations remain outstanding.
+  - **Change:** Implemented in `crates/desktop/src/media.rs`; verify on each native media-control backend.
   - **Verify:** Same-ID rescans while playing and paused on Windows and Linux without repeatedly publishing unchanged state.
 
 - [ ] **UI-003 | Medium | Show playback errors in fullscreen.**

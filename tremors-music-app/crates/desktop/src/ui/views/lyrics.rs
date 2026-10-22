@@ -13,8 +13,12 @@ impl MusicApp {
             .map(|s| s.details.lyrics.clone())
             .unwrap_or_default();
         if text.is_empty() {
-            return div().flex_1().flex().items_center().justify_center().p_8().text_color(cx.theme().muted_foreground)
-                .child("No lyrics for this track. Add embedded lyrics or a matching .lrc file beside the song.").into_any_element();
+            return div().flex_1().flex().flex_col().items_center().justify_center().gap_4().p_8()
+                .child(Icon::new(IconName::Mic).size_12().text_color(cx.theme().primary))
+                .child(div().text_2xl().font_weight(FontWeight::BOLD).child("Every song has a story"))
+                .child(div().max_w(px(400.)).text_center().text_color(cx.theme().muted_foreground)
+                    .child("Lyrics appear here when your track contains them. You can also place a matching .lrc file beside your song."))
+                .into_any_element();
         }
         let lines = self.lyric_lines.clone();
         if lines.is_empty() {
@@ -43,7 +47,7 @@ impl MusicApp {
                             .flex()
                             .items_center()
                             .cursor_pointer()
-                            .text_xl()
+                            .text_2xl()
                             .text_color(if active == Some(i) {
                                 cx.theme().primary
                             } else {

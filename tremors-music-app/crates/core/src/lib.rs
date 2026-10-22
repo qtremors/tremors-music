@@ -10,3 +10,8 @@ pub mod queue;
 pub mod scanner;
 pub mod service;
 pub mod settings;
+
+mod file_io;
+pub mod metadata;
+pub mod playlist_file;
+pub mod sleep_timer;

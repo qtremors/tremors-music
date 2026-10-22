@@ -31,6 +31,10 @@ pub struct Preferences {
     pub shuffle: bool,
     pub repeat: RepeatMode,
     pub light_theme: bool,
+    pub oled_theme: bool,
+    pub reduce_motion: bool,
+    pub excluded_folders: Vec<PathBuf>,
+    pub minimum_duration: u32,
     pub accent: String,
     pub show_artwork: bool,
     pub watch_folders: bool,
@@ -81,13 +85,27 @@ impl Default for Preferences {
             shuffle: false,
             repeat: RepeatMode::Off,
             light_theme: false,
-            accent: "Neutral".into(),
+            oled_theme: false,
+            reduce_motion: false,
+            excluded_folders: Vec::new(),
+            minimum_duration: 0,
+            accent: "Red".into(),
             show_artwork: true,
             watch_folders: true,
             replay_gain: false,
             sort: SongSort::Title,
             descending: false,
         }
+    }
+}
+
+impl Preferences {
+    pub fn includes(&self, song: &crate::model::Song) -> bool {
+        song.duration >= f64::from(self.minimum_duration)
+            && !self
+                .excluded_folders
+                .iter()
+                .any(|folder| song.path.starts_with(folder))
     }
 }
 

@@ -28,10 +28,19 @@ impl MusicApp {
         let focus = cx.focus_handle();
         window.focus(&focus, cx);
         let (folder_tx, folder_rx) = mpsc::channel();
+        let (file_tx, file_rx) = mpsc::channel();
+        let minimum_duration =
+            cx.new(|cx| InputState::new(window, cx).placeholder("Minimum seconds"));
         let subscriptions = vec![
             cx.subscribe_in(&search, window, |this, state, event, _, cx| {
-                if matches!(event, InputEvent::Change) {
+                if matches!(event, InputEvent::Change) && !matches!(this.page, Page::Metadata(_)) {
                     this.query = state.read(cx).value().to_string();
+                    this.table_scroll = UniformListScrollHandle::new();
+                    if !this.query.trim().is_empty() && this.page != Page::Search {
+                        this.history.push(this.page.clone());
+                        this.page = Page::Search;
+                        this.page_revision += 1;
+                    }
                     this.rebuild();
                     cx.notify();
                 }
@@ -39,6 +48,8 @@ impl MusicApp {
             cx.subscribe_in(&playlist_name, window, |this, _, event, window, cx| {
                 if matches!(event, InputEvent::PressEnter { .. }) {
                     this.save_playlist(window, cx);
+                } else if matches!(event, InputEvent::Change) {
+                    cx.notify();
                 }
             }),
             cx.subscribe_in(&seek, window, |this, _, event, _, cx| {
@@ -101,6 +112,17 @@ impl MusicApp {
         })
         .detach();
         Self {
+            metadata: None,
+            file_tx,
+            file_rx,
+            picking_file: false,
+            minimum_duration,
+            sleep_timer: None,
+            timer_finish_track: false,
+            timer_fade: true,
+            timer_label: String::new(),
+            timer_gain: 1.,
+            page_revision: 0,
             paths,
             library,
             audio,
@@ -111,8 +133,14 @@ impl MusicApp {
             initialized: false,
             preferences: Preferences::default(),
             loaded: false,
-            page: Page::Library,
+            page: Page::Home,
             rows: Vec::new(),
+            home_sections: Vec::new(),
+            artist_collections: Vec::new(),
+            show_artist_albums: true,
+            gallery_columns: 4,
+            table_scroll: UniformListScrollHandle::new(),
+            gallery_scroll: UniformListScrollHandle::new(),
             query: String::new(),
             search,
             playlist_name,
@@ -143,7 +171,7 @@ impl MusicApp {
             lyric_lines: Arc::new(Vec::new()),
             media,
             media_rx,
-            media_song: None,
+            media_revision: None,
             media_status: (false, false, u64::MAX),
         }
     }
@@ -169,6 +197,13 @@ impl MusicApp {
                 LibraryEvent::Snapshot(snapshot) => {
                     if !self.initialized {
                         self.preferences = snapshot.preferences.clone();
+                        self.minimum_duration.update(cx, |input, cx| {
+                            input.set_value(
+                                self.preferences.minimum_duration.to_string(),
+                                window,
+                                cx,
+                            )
+                        });
                         self.queue.repeat = snapshot.preferences.repeat;
                         self.queue.shuffle = snapshot.preferences.shuffle;
                         self.position = self.queue.restore(&snapshot.session, &snapshot.songs);
@@ -192,6 +227,7 @@ impl MusicApp {
                         self.stop();
                     }
                     self.cache_lyrics();
+                    self.home_sections = home_sections(&snapshot);
                     self.snapshot = snapshot;
                     if let Page::Playlist(id) = self.page
                         && !self.snapshot.playlists.iter().any(|pl| pl.id == id)
@@ -213,6 +249,29 @@ impl MusicApp {
                 }
                 LibraryEvent::ScanFinished { message, warnings } => {
                     self.scanning = false;
+                    self.status = message;
+                    self.warnings = warnings;
+                }
+                LibraryEvent::MetadataLoaded(document) => {
+                    self.receive_metadata(*document, false, window, cx)
+                }
+                LibraryEvent::MetadataSaved(document) => {
+                    self.receive_metadata(*document, true, window, cx);
+                    self.media_revision = None;
+                }
+                LibraryEvent::MetadataError(id, message) => {
+                    self.status = message.clone();
+                    if self.page == Page::Metadata(id)
+                        && let Some(editor) = &mut self.metadata
+                    {
+                        editor.saving = false;
+                        editor.message = message;
+                    }
+                }
+                LibraryEvent::PictureLoaded(id, picture) => {
+                    self.append_picture(id, picture, window, cx)
+                }
+                LibraryEvent::OperationFinished { message, warnings } => {
                     self.status = message;
                     self.warnings = warnings;
                 }
@@ -260,7 +319,13 @@ impl MusicApp {
                     self.is_playing = false;
                     self.ended = true;
                     self.position = self.duration;
-                    if self.queue.next(true).is_some() {
+                    if self
+                        .sleep_timer
+                        .as_ref()
+                        .is_some_and(|t| t.stop_at_track_end(Instant::now()))
+                    {
+                        self.expire_timer();
+                    } else if self.queue.next(true).is_some() {
                         self.load_current();
                     }
                     self.rebuild();
@@ -282,6 +347,8 @@ impl MusicApp {
                 _ => {}
             }
         }
+        changed |= self.poll_files();
+        changed |= self.poll_timer();
         while let Ok(folder) = self.folder_rx.try_recv() {
             self.picking_folder = false;
             changed = true;
@@ -338,11 +405,11 @@ impl MusicApp {
             changed = true;
         }
         let song = self.queue.current();
-        let id = song.map(|s| s.id);
+        let revision = song.map(crate::media::revision);
         if let Some(media) = &mut self.media {
-            if id != self.media_song {
+            if revision != self.media_revision {
                 crate::media::metadata(media, song);
-                self.media_song = id;
+                self.media_revision = revision;
             }
             let status = (
                 song.is_some(),

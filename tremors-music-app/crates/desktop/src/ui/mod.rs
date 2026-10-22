@@ -4,10 +4,14 @@
 //! Desktop state and entry point, with worker, playback, browsing, and view modules.
 
 mod browsing;
+mod file_tasks;
+mod metadata;
+mod motion;
 mod navigation;
 mod playback;
 mod runtime;
 mod theme;
+mod timer;
 mod views;
 
 use gpui_kit::assets::IconName;
@@ -16,6 +20,7 @@ use gpui_kit::component::{
     button::{Button, ButtonVariants},
     input::{Input, InputEvent, InputState},
     menu::{ContextMenuExt, DropdownMenu, PopupMenu, PopupMenuItem},
+    scroll::{ScrollableElement, Scrollbar},
     slider::{Slider, SliderEvent, SliderState, SliderValue},
     switch::Switch,
 };
@@ -26,9 +31,12 @@ use std::{
     time::{Duration, Instant},
 };
 use tremors_core::{
-    browsing::{BrowsePage as Page, BrowseRow as Row, build_rows, song_index, visible_songs},
+    browsing::{
+        BrowsePage as Page, BrowseRow as Row, HomeSection, artist_albums, build_rows,
+        home_sections, song_index, visible_songs,
+    },
     lyrics::{active_line, parse_lrc},
-    model::{Snapshot, Song, duration_label},
+    model::{Snapshot, Song, count_label, duration_label},
     playback::{self as audio, AudioCommand, AudioEvent, AudioHandle},
     queue::Queue,
     service::{self, LibraryCommand, LibraryEvent, LibraryHandle},
@@ -57,6 +65,10 @@ actions!(
 
 #[derive(Clone)]
 enum Overlay {
+    SleepTimer,
+    DiscardEdits(Page, bool),
+    CreatePlaylist,
+    RenamePlaylist(i64),
     AddToPlaylist(i64),
     DeletePlaylist(i64),
     RemoveFolder(PathBuf),
@@ -83,6 +95,17 @@ impl Render for RowDrag {
 }
 
 struct MusicApp {
+    metadata: Option<metadata::MetadataEditor>,
+    file_tx: mpsc::Sender<(file_tasks::FileTask, Option<PathBuf>)>,
+    file_rx: mpsc::Receiver<(file_tasks::FileTask, Option<PathBuf>)>,
+    picking_file: bool,
+    minimum_duration: Entity<InputState>,
+    sleep_timer: Option<tremors_core::sleep_timer::SleepTimer>,
+    timer_finish_track: bool,
+    timer_fade: bool,
+    timer_label: String,
+    timer_gain: f32,
+    page_revision: usize,
     paths: AppPaths,
     library: LibraryHandle,
     audio: AudioHandle,
@@ -95,6 +118,12 @@ struct MusicApp {
     loaded: bool,
     page: Page,
     rows: Vec<Row>,
+    home_sections: Vec<HomeSection>,
+    artist_collections: Vec<Row>,
+    show_artist_albums: bool,
+    gallery_columns: usize,
+    table_scroll: UniformListScrollHandle,
+    gallery_scroll: UniformListScrollHandle,
     query: String,
     search: Entity<InputState>,
     playlist_name: Entity<InputState>,
@@ -125,11 +154,11 @@ struct MusicApp {
     lyric_lines: Arc<Vec<tremors_core::lyrics::LyricLine>>,
     media: Option<souvlaki::MediaControls>,
     media_rx: mpsc::Receiver<souvlaki::MediaControlEvent>,
-    media_song: Option<i64>,
+    media_revision: Option<u64>,
     media_status: (bool, bool, u64),
 }
 
-fn cover_element(cover: Option<PathBuf>, size: f32) -> AnyElement {
+fn cover_element(cover: Option<PathBuf>, size: f32, cx: &App) -> AnyElement {
     if let Some(path) = cover {
         img(path)
             .size(px(size))
@@ -141,13 +170,48 @@ fn cover_element(cover: Option<PathBuf>, size: f32) -> AnyElement {
             .size(px(size))
             .flex_shrink_0()
             .rounded_md()
-            .bg(rgb(0x252832))
+            .bg(cx.theme().muted)
             .flex()
             .items_center()
             .justify_center()
-            .text_color(rgb(0x8d92a3))
+            .text_color(cx.theme().muted_foreground)
             .child(Icon::new(IconName::Music))
             .into_any_element()
+    }
+}
+
+fn collection_artwork(cover: Option<PathBuf>, round: bool, cx: &App) -> AnyElement {
+    let artwork = div()
+        .w_full()
+        .aspect_ratio(1.)
+        .overflow_hidden()
+        .bg(cx.theme().muted)
+        .when(round, |d| d.rounded_full())
+        .when(!round, |d| d.rounded_lg());
+    match cover {
+        Some(path) => artwork
+            .child(
+                img(path)
+                    .size_full()
+                    .object_fit(ObjectFit::Cover)
+                    .when(round, |image| image.rounded_full())
+                    .when(!round, |image| image.rounded_lg()),
+            )
+            .into_any_element(),
+        None => artwork
+            .flex()
+            .items_center()
+            .justify_center()
+            .text_color(cx.theme().muted_foreground)
+            .child(
+                Icon::new(if round {
+                    IconName::Users
+                } else {
+                    IconName::Music
+                })
+                .size_12(),
+            )
+            .into_any_element(),
     }
 }
 

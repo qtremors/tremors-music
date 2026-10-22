@@ -67,7 +67,8 @@ impl Library {
             );
             CREATE INDEX IF NOT EXISTS playlist_order ON playlist_entries(playlist_id,position);
             CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, value TEXT NOT NULL);
-            PRAGMA user_version=3;")?;
+            CREATE TABLE IF NOT EXISTS artwork_overrides(key TEXT PRIMARY KEY,cover TEXT NOT NULL);
+            PRAGMA user_version=4;")?;
         let columns = connection
             .prepare("PRAGMA table_info(songs)")?
             .query_map([], |r| r.get::<_, String>(1))?
@@ -82,6 +83,12 @@ impl Library {
     }
 
     pub fn snapshot(&self) -> Result<Snapshot> {
+        let mut snapshot = self.full_snapshot()?;
+        snapshot.songs.retain(|s| snapshot.preferences.includes(s));
+        Ok(snapshot)
+    }
+
+    pub fn full_snapshot(&self) -> Result<Snapshot> {
         let songs = self.connection.prepare(&format!("SELECT {SONG_COLUMNS} FROM songs ORDER BY title COLLATE NOCASE,artist COLLATE NOCASE,id"))?
             .query_map([], song_from_row)?.collect::<rusqlite::Result<Vec<_>>>()?;
         let roots = self
@@ -104,7 +111,7 @@ impl Library {
             pl.entries = self.connection.prepare("SELECT id,song_id FROM playlist_entries WHERE playlist_id=? ORDER BY position,id")?
                 .query_map([pl.id], |r| Ok(PlaylistEntry { id:r.get(0)?, song_id:r.get(1)? }))?.collect::<rusqlite::Result<Vec<_>>>()?;
         }
-        let preferences = self
+        let preferences: Preferences = self
             .connection
             .query_row(
                 "SELECT value FROM settings WHERE key='preferences'",
@@ -115,6 +122,16 @@ impl Library {
             .and_then(|s| serde_json::from_str(&s).ok())
             .unwrap_or_default();
         Ok(Snapshot {
+            artwork: self
+                .connection
+                .prepare("SELECT key,cover FROM artwork_overrides")?
+                .query_map([], |r| {
+                    Ok((
+                        r.get::<_, String>(0)?,
+                        PathBuf::from(r.get::<_, String>(1)?),
+                    ))
+                })?
+                .collect::<rusqlite::Result<_>>()?,
             songs,
             roots,
             playlists,
@@ -128,6 +145,30 @@ impl Library {
                 .and_then(|s| serde_json::from_str(&s).ok())
                 .unwrap_or_default(),
         })
+    }
+
+    pub fn set_artwork(&mut self, key: &str, cover: Option<&Path>) -> Result<()> {
+        if let Some(path) = cover {
+            self.connection.execute("INSERT INTO artwork_overrides(key,cover) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET cover=excluded.cover", params![key, path.to_string_lossy()])?;
+        } else {
+            self.connection
+                .execute("DELETE FROM artwork_overrides WHERE key=?", [key])?;
+        }
+        Ok(())
+    }
+
+    pub fn import_playlist(&mut self, name: &str, songs: &[Song]) -> Result<i64> {
+        // File reads complete before the transaction; insertion and entry order commit together.
+        let tx = self.connection.transaction()?;
+        tx.execute("INSERT INTO playlists(name) VALUES(?)", [name])?;
+        let id = tx.last_insert_rowid();
+        for (position, song) in songs.iter().enumerate() {
+            tx.execute("INSERT OR IGNORE INTO songs(path,title,artist,album,album_artist,genre,year,track,disc,duration,cover,added_at,metadata) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                params![song.path.to_string_lossy(),song.title,song.artist,song.album,song.album_artist,song.genre,song.year,song.track,song.disc,song.duration,song.cover.as_ref().map(|p|p.to_string_lossy().into_owned()),now(),serde_json::to_string(&song.details)?])?;
+            tx.execute("INSERT INTO playlist_entries(playlist_id,song_id,position) SELECT ?,id,? FROM songs WHERE path=?", params![id,position as i64,song.path.to_string_lossy()])?;
+        }
+        tx.commit()?;
+        Ok(id)
     }
 
     pub fn watch_config(&self) -> Result<(Vec<PathBuf>, bool)> {
@@ -162,7 +203,7 @@ impl Library {
     }
 
     pub fn remove_root(&mut self, root: &Path) -> Result<()> {
-        let snapshot = self.snapshot()?;
+        let snapshot = self.full_snapshot()?;
         let remaining: Vec<_> = snapshot
             .roots
             .iter()
@@ -190,7 +231,7 @@ impl Library {
         prune: bool,
     ) -> Result<()> {
         let old = if prune {
-            self.snapshot()?.songs
+            self.full_snapshot()?.songs
         } else {
             Vec::new()
         };
@@ -244,7 +285,7 @@ impl Library {
 
     pub fn reset(&mut self, remove_folders: bool) -> Result<()> {
         let tx = self.connection.transaction()?;
-        tx.execute_batch("DELETE FROM playlist_entries; DELETE FROM playlists; DELETE FROM songs; DELETE FROM settings WHERE key='session';")?;
+        tx.execute_batch("DELETE FROM playlist_entries; DELETE FROM playlists; DELETE FROM artwork_overrides; DELETE FROM songs; DELETE FROM settings WHERE key='session';")?;
         if remove_folders {
             tx.execute("DELETE FROM roots", [])?;
         }
@@ -257,7 +298,7 @@ impl Library {
             bail!("Music folder does not exist: {}", new.display());
         }
         let new = dunce::canonicalize(new)?;
-        let snapshot = self.snapshot()?;
+        let snapshot = self.full_snapshot()?;
         if !snapshot.roots.iter().any(|r| r == old) {
             bail!("Folder no longer exists in your library");
         }
@@ -319,6 +360,7 @@ impl Library {
     }
 
     pub fn delete_playlist(&mut self, id: i64) -> Result<()> {
+        self.set_artwork(&format!("playlist:{id}"), None)?;
         self.connection
             .execute("DELETE FROM playlists WHERE id=?", [id])?;
         Ok(())

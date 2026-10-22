@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright (C) 2025-2026 Tremors and contributors
 
+mod operations;
+
 use crate::{
     library::Library,
     model::Snapshot,
@@ -23,6 +25,12 @@ use std::{
 #[derive(Debug)]
 pub enum LibraryCommand {
     Refresh,
+    ReadMetadata(i64),
+    SaveMetadata(Box<crate::metadata::MetadataDocument>, Option<Receiver<()>>),
+    LoadPicture(i64, PathBuf),
+    SetArtwork(String, Option<PathBuf>),
+    ImportPlaylist(PathBuf),
+    ExportPlaylist(i64, PathBuf, bool),
     Session(QueueState),
     ReplaceFolder(PathBuf, PathBuf),
     Reset(bool),
@@ -48,6 +56,14 @@ pub enum LibraryEvent {
     ScanStarted,
     ScanProgress(ScanProgress),
     ScanFinished {
+        message: String,
+        warnings: Vec<String>,
+    },
+    MetadataLoaded(Box<crate::metadata::MetadataDocument>),
+    MetadataSaved(Box<crate::metadata::MetadataDocument>),
+    MetadataError(i64, String),
+    PictureLoaded(i64, crate::metadata::Artwork),
+    OperationFinished {
         message: String,
         warnings: Vec<String>,
     },
@@ -166,8 +182,35 @@ fn worker(
             }
             continue;
         }
+        if let Some(result) = operations::execute(&command, &mut library, &paths) {
+            match result {
+                Ok(event) => {
+                    tx.send(event)?;
+                    tx.send(LibraryEvent::Snapshot(Arc::new(library.snapshot()?)))?;
+                }
+                Err(error) => {
+                    let message = format!("{error:#}");
+                    tx.send(match &command {
+                        LibraryCommand::ReadMetadata(id) => {
+                            LibraryEvent::MetadataError(*id, message)
+                        }
+                        LibraryCommand::SaveMetadata(doc, _) => {
+                            LibraryEvent::MetadataError(doc.song_id, message)
+                        }
+                        _ => LibraryEvent::Error(message),
+                    })?;
+                }
+            }
+            continue;
+        }
         let result = (|| -> Result<()> {
             match command {
+                LibraryCommand::ReadMetadata(_)
+                | LibraryCommand::SaveMetadata(..)
+                | LibraryCommand::LoadPicture(..)
+                | LibraryCommand::SetArtwork(..)
+                | LibraryCommand::ImportPlaylist(_)
+                | LibraryCommand::ExportPlaylist(..) => unreachable!(),
                 LibraryCommand::Refresh => {}
                 LibraryCommand::Session(_)
                 | LibraryCommand::AddFolderAndScan(_)
@@ -175,7 +218,13 @@ fn worker(
                 LibraryCommand::ReplaceFolder(old, new) => library.replace_root(&old, &new)?,
                 LibraryCommand::Reset(remove_folders) => library.reset(remove_folders)?,
                 LibraryCommand::CleanArtwork => {
-                    scanner::cleanup_covers(&paths.covers, &library.snapshot()?.songs)?;
+                    let snapshot = library.full_snapshot()?;
+                    let mut songs = snapshot.songs;
+                    songs.extend(snapshot.artwork.values().map(|cover| crate::model::Song {
+                        cover: Some(cover.clone()),
+                        ..Default::default()
+                    }));
+                    scanner::cleanup_covers(&paths.covers, &songs)?;
                 }
                 LibraryCommand::AddFolder(path) => library.add_root(&path)?,
                 LibraryCommand::RemoveFolder(path) => library.remove_root(&path)?,
@@ -193,7 +242,7 @@ fn worker(
                 LibraryCommand::Scan => {
                     last_scan = clock_ms();
                     dirty.store(0, Ordering::Relaxed);
-                    let snapshot = library.snapshot()?;
+                    let snapshot = library.full_snapshot()?;
                     let roots = snapshot.roots;
                     if roots.is_empty() {
                         anyhow::bail!("Add a music folder before scanning");
@@ -207,11 +256,12 @@ fn worker(
                             cancelled = true;
                             break;
                         }
-                        match scanner::scan_cached(
+                        match scanner::scan_cached_filtered(
                             &root,
                             &paths.covers,
                             cancel,
                             &snapshot.songs,
+                            &snapshot.preferences,
                             |p| {
                                 let _ = tx.send(LibraryEvent::ScanProgress(p));
                             },
