@@ -67,11 +67,14 @@ pub enum BrowsePage {
     MostPlayed,
     RecentlyPlayed,
     Metadata(i64),
+    LyricsEditor(i64),
     Playlist(i64),
     Album(String, String),
     Artist(String),
     Queue,
     Folders,
+    FolderBrowser,
+    Folder(PathBuf),
 }
 
 #[derive(Clone)]
@@ -103,6 +106,64 @@ pub fn build_rows(
     let songs = &snapshot.songs;
     let by_id: HashMap<_, _> = songs.iter().map(|s| (s.id, s)).collect();
     match page {
+        Page::FolderBrowser => {
+            // Roots are library navigation only: browsing never walks arbitrary disk paths.
+            for root in &snapshot.roots {
+                let count = songs.iter().filter(|s| s.path.starts_with(root)).count();
+                rows.push(Row::Group {
+                    title: root
+                        .file_name()
+                        .unwrap_or(root.as_os_str())
+                        .to_string_lossy()
+                        .into_owned(),
+                    subtitle: format!("{} · {}", count_label(count, "song"), root.display()),
+                    cover: songs
+                        .iter()
+                        .find(|s| s.path.starts_with(root))
+                        .and_then(|s| s.cover.clone()),
+                    page: Page::Folder(root.clone()),
+                });
+            }
+        }
+        Page::Folder(folder) => {
+            let mut children = BTreeMap::<PathBuf, usize>::new();
+            for song in songs {
+                if let Ok(relative) = song.path.strip_prefix(folder) {
+                    let parts: Vec<_> = relative.components().collect();
+                    if parts.len() > 1 {
+                        *children.entry(folder.join(parts[0])).or_default() += 1;
+                    } else if song.matches(query) {
+                        rows.push(Row::Song {
+                            song: Arc::new(song.clone()),
+                            entry: None,
+                            queue_index: None,
+                        });
+                    }
+                }
+            }
+            let mut folders: Vec<_> = children
+                .into_iter()
+                .filter(|(path, _)| {
+                    path.file_name().is_some_and(|name| {
+                        name.to_string_lossy()
+                            .to_lowercase()
+                            .contains(&query.to_lowercase())
+                    })
+                })
+                .map(|(path, count)| Row::Group {
+                    title: path
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .into_owned(),
+                    subtitle: count_label(count, "song"),
+                    cover: None,
+                    page: Page::Folder(path),
+                })
+                .collect();
+            folders.extend(rows);
+            return folders;
+        }
         Page::Albums => return album_rows(songs.iter(), query),
         Page::Artists => {
             let mut groups: BTreeMap<String, Vec<&Song>> = BTreeMap::new();
@@ -245,7 +306,12 @@ pub fn build_rows(
                 }
             }
         }
-        Page::Home | Page::Folders | Page::Settings | Page::Lyrics | Page::Metadata(_) => {}
+        Page::Home
+        | Page::Folders
+        | Page::Settings
+        | Page::Lyrics
+        | Page::Metadata(_)
+        | Page::LyricsEditor(_) => {}
         page => {
             let mut selected: Vec<_> = songs
                 .iter()

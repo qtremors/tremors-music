@@ -3,21 +3,29 @@
 
 //! Desktop state and entry point, with worker, playback, browsing, and view modules.
 
+mod audio_settings;
+mod backup;
 mod browsing;
+mod dialogs;
 mod file_tasks;
+mod inputs;
+mod lyric_editor;
 mod metadata;
 mod motion;
 mod navigation;
 mod playback;
 mod runtime;
+mod scrolling;
+mod selection;
 mod theme;
 mod timer;
 mod views;
 
 use gpui_kit::assets::IconName;
 use gpui_kit::component::{
-    ActiveTheme, Disableable, Icon, Selectable, Sizable, Theme, ThemeMode,
+    ActiveTheme, Disableable, FocusTrapElement, Icon, Selectable, Sizable, Theme, ThemeMode,
     button::{Button, ButtonVariants},
+    checkbox::Checkbox,
     input::{Input, InputEvent, InputState},
     menu::{ContextMenuExt, DropdownMenu, PopupMenu, PopupMenuItem},
     scroll::{ScrollableElement, Scrollbar},
@@ -59,17 +67,25 @@ actions!(
         ShowLyrics,
         Fullscreen,
         Back,
-        Escape
+        Escape,
+        PageUp,
+        PageDown,
+        ScrollTop,
+        ScrollBottom,
+        ActivateCollection
     ]
 );
 
 #[derive(Clone)]
 enum Overlay {
+    RestoreBackup,
     SleepTimer,
+    CloseUnsaved,
     DiscardEdits(Page, bool),
     CreatePlaylist,
     RenamePlaylist(i64),
     AddToPlaylist(i64),
+    AddManyToPlaylist(Vec<i64>),
     DeletePlaylist(i64),
     RemoveFolder(PathBuf),
     Reset(bool),
@@ -95,7 +111,11 @@ impl Render for RowDrag {
 }
 
 struct MusicApp {
+    backup_review: Option<backup::BackupReview>,
+    selection_mode: bool,
+    selected_songs: std::collections::HashSet<i64>,
     metadata: Option<metadata::MetadataEditor>,
+    lyric_editor: Option<lyric_editor::Editor>,
     file_tx: mpsc::Sender<(file_tasks::FileTask, Option<PathBuf>)>,
     file_rx: mpsc::Receiver<(file_tasks::FileTask, Option<PathBuf>)>,
     picking_file: bool,
@@ -122,6 +142,12 @@ struct MusicApp {
     artist_collections: Vec<Row>,
     show_artist_albums: bool,
     gallery_columns: usize,
+    page_scroll: ScrollHandle,
+    saved_scroll: Vec<(Page, scrolling::PageScroll)>,
+    home_scroll: std::collections::HashMap<&'static str, ScrollHandle>,
+    overlay_focus: FocusHandle,
+    overlay_return_focus: Option<FocusHandle>,
+    overlay_scroll: ScrollHandle,
     table_scroll: UniformListScrollHandle,
     gallery_scroll: UniformListScrollHandle,
     query: String,
@@ -134,6 +160,10 @@ struct MusicApp {
     _subscriptions: Vec<Subscription>,
     queue: Queue,
     generation: u64,
+    prepared_next: Option<audio::NextTrack>,
+    audio_edit_pending: bool,
+    next_token: u64,
+    sound: audio_settings::Controls,
     is_playing: bool,
     loading: bool,
     ended: bool,
@@ -149,7 +179,10 @@ struct MusicApp {
     saved_at: Instant,
     muted: bool,
     immersive: bool,
-    lyrics_scroll: UniformListScrollHandle,
+    lyrics_scroll: ListState,
+    lyric_plain_lines: Arc<Vec<String>>,
+    lyrics_source: Option<(i64, String)>,
+    lyric_follow: bool,
     lyric_index: Option<usize>,
     lyric_lines: Arc<Vec<tremors_core::lyrics::LyricLine>>,
     media: Option<souvlaki::MediaControls>,
@@ -225,7 +258,13 @@ pub fn run() -> anyhow::Result<()> {
             gpui_kit::init(cx);
             Theme::change(ThemeMode::Dark, None, cx);
             cx.bind_keys([
-                KeyBinding::new("space", TogglePlayback, Some("Player && !Input")),
+                KeyBinding::new(
+                    "space",
+                    TogglePlayback,
+                    Some("Player && !Input && !CollectionCard"),
+                ),
+                KeyBinding::new("enter", ActivateCollection, Some("CollectionCard")),
+                KeyBinding::new("space", ActivateCollection, Some("CollectionCard")),
                 KeyBinding::new("ctrl-right", NextTrack, Some("Player && !Input")),
                 KeyBinding::new("ctrl-left", PreviousTrack, Some("Player && !Input")),
                 KeyBinding::new("ctrl-k", FocusSearch, Some("Player")),
@@ -243,6 +282,11 @@ pub fn run() -> anyhow::Result<()> {
                 KeyBinding::new("f11", Fullscreen, Some("Player")),
                 KeyBinding::new("alt-left", Back, Some("Player && !Input")),
                 KeyBinding::new("escape", Escape, Some("Player")),
+                KeyBinding::new("escape", Escape, Some("PlayerModal")),
+                KeyBinding::new("pageup", PageUp, Some("Player && !Input")),
+                KeyBinding::new("pagedown", PageDown, Some("Player && !Input")),
+                KeyBinding::new("home", ScrollTop, Some("Player && !Input")),
+                KeyBinding::new("end", ScrollBottom, Some("Player && !Input")),
             ]);
             cx.on_window_closed(|cx, _| {
                 if cx.windows().is_empty() {

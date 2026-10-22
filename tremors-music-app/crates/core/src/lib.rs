@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright (C) 2025-2026 Tremors and contributors
 
+pub mod backup;
 pub mod browsing;
 pub mod library;
 pub mod lyrics;

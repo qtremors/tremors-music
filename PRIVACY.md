@@ -4,7 +4,7 @@
 
 Tremors Music processes music locally. It has no accounts, telemetry, uploads, cloud sync, online metadata lookup or automatic update checks. Icons are bundled; no backend server is needed.
 
-The app reads selected music folders, metadata, embedded artwork and matching `.lrc` lyric files. Browsing and scanning never modify music. The metadata editor writes tags, embedded lyrics, and images only when you choose **Save to file**. It checks for outside file changes and validates a temporary copy before replacing the original. Local `.lrc` files remain unchanged. Folder removal and library resets never delete music. Automatic folder updates watch only registered roots and can be disabled.
+The app reads selected music folders, metadata, embedded artwork and matching `.lrc`, `.ttml`, and `.txt` lyric files. Browsing and scanning never modify music. The metadata editor writes tags, embedded lyrics, and images only when you choose **Save to file**. It checks for outside file changes and validates a temporary copy before replacing the original. The local lyric editor writes a matching sidecar only when you choose **Save lyrics**, with an outside-change check. Folder removal and library resets never delete music. Automatic folder updates watch only registered roots and can be disabled.
 
 ## Stored data
 
@@ -16,7 +16,7 @@ Desktop media controls expose current-track metadata to Windows SMTC or the loca
 
 ## Your choices
 
-Removing the executable leaves library data in your user profile. Reset controls erase application records without deleting music. To erase all app data, close the app and remove the displayed data directory. Copying it backs up the library, but music paths must remain valid.
+Removing the executable leaves library data in your user profile. Reset controls erase application records without deleting music. To erase all app data, close the app and remove the displayed data directory. Copying it backs up the library, but music paths must remain valid. **Settings → Backup & restore** also saves a local curation archive containing playlists, favorites, play history, preferences, music paths, and chosen artwork. It excludes the music files and is never uploaded. Restore can map a moved folder, adds playlists alongside existing ones, and merges curation.
 
 ## Build and website requests
 

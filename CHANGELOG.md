@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+- Standardized text fields at 38 px, search at 32 px, and shared padded text areas; corrected the line-height/padding mismatch that clipped glyphs and prevented form controls from shrinking in flex layouts.
+
+- Reduced the persistent player from 84 to 64 px and the toolbar to 48 px; aligned content insets, tightened collection headers, and added a short reduced-motion-aware entry lift.
+- Added indexed folder browsing and subtree playback, plus bulk selection for queue, playlist, and favorite actions.
+- Added versioned local curation backups with restore review, folder mapping, custom artwork, optional preferences, and transactional curation merging.
+- Added predecoded gapless track handoffs, 10-band EQ with presets, preamp, balance, track/album ReplayGain selection, and linked tempo/pitch speed control.
+- Added enhanced LRC word highlighting, common TTML timing, paired translation lines, per-track lyric offsets, and a conflict-aware local sidecar editor with draft protection.
+- Kept curation archives, lyric documents/parsing, audio processing/sources/device ownership, selection, and sound/editor controls in dedicated modules.
+
+- Audited the running desktop with a larger synthetic library and fixed independent shelf scrolling, keyboard scrolling, and restoration of browsing positions, search queries, and artist view selection.
+- Added visible scrollbars and variable-height virtualized lyric rows, manual scrolling with resumed following, and remeasurement when the highlighted lyric changes.
+- Added keyboard activation and focus styling to collection cards, trapped dialog focus, restored valid focus after menu dialogs, and protected unsaved metadata drafts when closing a window.
+- Aligned queue and playlist reorder controls, bounded long collection headings, and stopped modal wheel input from scrolling the background.
+
 - Added native metadata editing for supported text tags, embedded lyrics, and artwork, with format-specific fields, unsaved-change guards, file conflict checks, and validated atomic saves.
 - Added a sleep timer with optional track completion and a final fade; UTF-8 M3U/M3U8 import/export preserves relative paths, order, and duplicate entries.
 - Added recently played, folder-cover fallback, local artist/playlist artwork overrides, excluded folders, and a minimum-duration filter that preserves library records.

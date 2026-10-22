@@ -9,6 +9,7 @@ use lofty::{
 };
 use std::{
     collections::{HashMap, HashSet},
+    hash::{Hash, Hasher},
     path::{Path, PathBuf},
     sync::atomic::{AtomicBool, Ordering},
 };
@@ -235,13 +236,17 @@ pub fn read_song(path: &Path, covers: &Path) -> Result<Song> {
                         .or_else(|| t.get_string(lofty::tag::ItemKey::UnsyncLyrics))
                 })
                 .unwrap_or_default();
-            let sidecar = path.with_extension("lrc");
             let synced = tag.and_then(embedded_synced_lyrics);
-            let lyrics = std::fs::metadata(&sidecar)
-                .ok()
-                .filter(|m| m.len() <= 2_000_000)
-                .and_then(|_| std::fs::read_to_string(&sidecar).ok())
-                .filter(|s| !s.trim().is_empty())
+            let lyrics = ["lrc", "ttml", "txt"]
+                .into_iter()
+                .find_map(|extension| {
+                    let sidecar = path.with_extension(extension);
+                    std::fs::metadata(&sidecar)
+                        .ok()
+                        .filter(|m| m.len() <= 2_000_000)
+                        .and_then(|_| std::fs::read_to_string(&sidecar).ok())
+                        .filter(|s| !s.trim().is_empty())
+                })
                 .unwrap_or_else(|| synced.unwrap_or_else(|| embedded.to_owned()));
             let mut tags = std::collections::BTreeMap::new();
             if let Some(tag) = tag {
@@ -257,6 +262,10 @@ pub fn read_song(path: &Path, covers: &Path) -> Result<Song> {
                     ("ReplayGain track", lofty::tag::ItemKey::ReplayGainTrackGain),
                     ("ReplayGain peak", lofty::tag::ItemKey::ReplayGainTrackPeak),
                     ("ReplayGain album", lofty::tag::ItemKey::ReplayGainAlbumGain),
+                    (
+                        "ReplayGain album peak",
+                        lofty::tag::ItemKey::ReplayGainAlbumPeak,
+                    ),
                 ] {
                     if let Some(value) = tag.get_string(key) {
                         tags.insert(name.into(), value.into());
@@ -320,7 +329,13 @@ pub fn fingerprint(path: &Path) -> (u64, u64, u64) {
     (
         std::fs::metadata(path).map_or(0, |m| m.len()),
         modified(path),
-        modified(&path.with_extension("lrc")),
+        {
+            let mut hash = std::collections::hash_map::DefaultHasher::new();
+            for extension in ["lrc", "ttml", "txt"] {
+                modified(&path.with_extension(extension)).hash(&mut hash);
+            }
+            hash.finish()
+        },
     )
 }
 

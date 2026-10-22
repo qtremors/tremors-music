@@ -15,7 +15,9 @@ fn snapshot(handle: &service::LibraryHandle) -> std::sync::Arc<tremors_core::mod
             .expect("worker must respond")
         {
             LibraryEvent::Snapshot(snapshot) => return snapshot,
-            LibraryEvent::Error(error) | LibraryEvent::MetadataError(_, error) => panic!("{error}"),
+            LibraryEvent::Error(error)
+            | LibraryEvent::MetadataError(_, error)
+            | LibraryEvent::LyricsError(_, error) => panic!("{error}"),
             _ => {}
         }
     }
@@ -210,4 +212,96 @@ fn metadata_and_playlist_operations_update_the_library_without_losing_curation()
         .send(LibraryCommand::DeletePlaylist(imported.playlists[0].id))
         .unwrap();
     assert!(!snapshot(&handle).artwork.contains_key(&key));
+}
+
+#[test]
+fn lyric_and_curation_commands_round_trip_through_the_worker() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().join("music");
+    std::fs::create_dir(&root).unwrap();
+    let music = root.join("song.flac");
+    std::fs::copy(
+        concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/tone.flac"),
+        &music,
+    )
+    .unwrap();
+    let handle = service::spawn(AppPaths::at(temp.path().join("data")).unwrap());
+    snapshot(&handle);
+    handle
+        .commands
+        .send(LibraryCommand::AddFolderAndScan(root))
+        .unwrap();
+    let mut scanned = snapshot(&handle);
+    if scanned.songs.is_empty() {
+        scanned = snapshot(&handle);
+    }
+    let id = scanned.songs[0].id;
+    handle
+        .commands
+        .send(LibraryCommand::ReadLyrics(id))
+        .unwrap();
+    let mut document = loop {
+        if let LibraryEvent::LyricsLoaded(document) =
+            handle.events.recv_timeout(Duration::from_secs(5)).unwrap()
+        {
+            break document;
+        }
+    };
+    snapshot(&handle);
+    document.text = "[00:00.10]<00:00.10>Worker <00:00.20>lyrics".into();
+    handle
+        .commands
+        .send(LibraryCommand::SaveLyrics(document))
+        .unwrap();
+    let saved = snapshot(&handle);
+    assert!(saved.songs[0].details.lyrics.contains("Worker"));
+    assert!(music.with_extension("lrc").is_file());
+    handle
+        .commands
+        .send(LibraryCommand::SetFavorites(vec![id], true))
+        .unwrap();
+    snapshot(&handle);
+    handle
+        .commands
+        .send(LibraryCommand::CreatePlaylist("Worker mix".into()))
+        .unwrap();
+    let pl = snapshot(&handle).playlists[0].id;
+    handle
+        .commands
+        .send(LibraryCommand::AddManyToPlaylist(pl, vec![id, id]))
+        .unwrap();
+    snapshot(&handle);
+    let file = temp.path().join("library.tremors-backup");
+    handle
+        .commands
+        .send(LibraryCommand::Backup(file.clone()))
+        .unwrap();
+    snapshot(&handle);
+    assert!(file.is_file());
+    handle
+        .commands
+        .send(LibraryCommand::ReadBackup(file))
+        .unwrap();
+    let backup = loop {
+        if let LibraryEvent::BackupLoaded(backup) =
+            handle.events.recv_timeout(Duration::from_secs(5)).unwrap()
+        {
+            break backup;
+        }
+    };
+    snapshot(&handle);
+    handle
+        .commands
+        .send(LibraryCommand::RestoreBackup(Box::new(
+            tremors_core::backup::Restore {
+                backup: *backup,
+                remap: None,
+                preferences: false,
+            },
+        )))
+        .unwrap();
+    let result = snapshot(&handle);
+    assert_eq!(result.playlists.len(), 2);
+    assert!(result.playlists.iter().all(|p| p.entries.len() == 2));
+    assert!(result.songs[0].favorite);
 }

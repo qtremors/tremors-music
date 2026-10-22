@@ -5,6 +5,8 @@
 use super::*;
 #[derive(Clone)]
 pub(super) enum FileTask {
+    Backup,
+    RestoreBackup,
     ImportPlaylist,
     ExportPlaylist(i64, bool),
     Artwork(String),
@@ -21,6 +23,13 @@ impl MusicApp {
         std::thread::spawn(move || {
             let dialog = rfd::FileDialog::new();
             let path = match &task {
+                FileTask::Backup => dialog
+                    .add_filter("Library curation", &["tremors-backup"])
+                    .set_file_name("library.tremors-backup")
+                    .save_file(),
+                FileTask::RestoreBackup => dialog
+                    .add_filter("Library curation", &["tremors-backup"])
+                    .pick_file(),
                 FileTask::ImportPlaylist => dialog
                     .add_filter("Local playlists", &["m3u", "m3u8"])
                     .pick_file(),
@@ -45,6 +54,14 @@ impl MusicApp {
                 continue;
             };
             match task {
+                FileTask::Backup => {
+                    self.send_library(LibraryCommand::Backup(if path.extension().is_none() {
+                        path.with_extension("tremors-backup")
+                    } else {
+                        path
+                    }))
+                }
+                FileTask::RestoreBackup => self.send_library(LibraryCommand::ReadBackup(path)),
                 FileTask::ImportPlaylist => {
                     self.status = "Importing playlist…".into();
                     self.send_library(LibraryCommand::ImportPlaylist(path));

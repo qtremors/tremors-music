@@ -6,9 +6,29 @@
 use super::*;
 
 impl MusicApp {
-    pub(in crate::ui) fn render_overlay(&mut self, cx: &mut Context<Self>) -> Option<AnyElement> {
+    pub(in crate::ui) fn render_overlay(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Option<AnyElement> {
         let overlay = self.overlay.clone()?;
+        let title = match &overlay {
+            Overlay::RestoreBackup => "Restore library curation",
+            Overlay::SleepTimer => "Sleep timer",
+            Overlay::CloseUnsaved => "Unsaved changes",
+            Overlay::DiscardEdits(..) => "Unsaved changes",
+            Overlay::CreatePlaylist => "New playlist",
+            Overlay::RenamePlaylist(_) => "Rename playlist",
+            Overlay::AddToPlaylist(_) | Overlay::AddManyToPlaylist(_) => "Add to playlist",
+            Overlay::DeletePlaylist(_) => "Delete playlist",
+            Overlay::RemoveFolder(_) => "Remove music folder",
+            Overlay::Reset(_) => "Reset library",
+            Overlay::Details(_) => "Track details",
+            Overlay::RelocateFolder(_) => "Relocate music folder",
+        };
         let mut panel = div()
+            .occlude()
+            .on_scroll_wheel(|_, _, cx| cx.stop_propagation())
             .absolute()
             .inset_0()
             .flex()
@@ -18,15 +38,17 @@ impl MusicApp {
             .child(div().absolute().inset_0().on_mouse_down(
                 MouseButton::Left,
                 cx.listener(|this, _, window, cx| {
-                    this.overlay = None;
+                    this.close_overlay(window, cx);
                     window.focus(&this.focus, cx);
                     cx.notify();
                 }),
             ));
         let mut content = div()
             .id("overlay-panel")
+            .role(gpui_kit::accesskit::Role::Dialog)
+            .aria_label(title)
             .w(px(440.))
-            .max_h(px(500.))
+            .max_h((window.viewport_size().height - px(48.)).min(px(500.)))
             .overflow_y_scroll()
             .p_6()
             .rounded_xl()
@@ -37,6 +59,27 @@ impl MusicApp {
             .flex_col()
             .gap_3();
         match overlay {
+            Overlay::RestoreBackup => content = content.child(self.render_backup_review(cx)),
+            Overlay::CloseUnsaved => {
+                content = content
+                    .child(
+                        div()
+                            .text_lg()
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .child("Close without saving?"),
+                    )
+                    .child("Your edits have not been saved.")
+                    .child(
+                        Button::new("discard-and-close")
+                            .danger()
+                            .label("Discard edits and close")
+                            .on_click(cx.listener(|this, _, window, _| {
+                                this.metadata = None;
+                                this.lyric_editor = None;
+                                window.remove_window();
+                            })),
+                    );
+            }
             Overlay::SleepTimer => {
                 content = content
                     .child(
@@ -69,9 +112,9 @@ impl MusicApp {
                     durations = durations.child(
                         Button::new(("timer-minutes", minutes as usize))
                             .label(format!("{minutes} min"))
-                            .on_click(
-                                cx.listener(move |this, _, _, cx| this.start_timer(minutes, cx)),
-                            ),
+                            .on_click(cx.listener(move |this, _, window, cx| {
+                                this.start_timer(minutes, window, cx)
+                            })),
                     );
                 }
                 content = content.child(durations);
@@ -79,9 +122,9 @@ impl MusicApp {
                     content = content
                         .child(format!("Active: {}", self.timer_label))
                         .child(Button::new("cancel-timer").label("Cancel timer").on_click(
-                            cx.listener(|this, _, _, cx| {
+                            cx.listener(|this, _, window, cx| {
                                 this.cancel_timer();
-                                this.overlay = None;
+                                this.close_overlay(window, cx);
                                 cx.notify();
                             }),
                         ));
@@ -95,14 +138,15 @@ impl MusicApp {
                             .font_weight(FontWeight::SEMIBOLD)
                             .child("Discard unsaved changes?"),
                     )
-                    .child("Your edits have not been saved to the music file.")
+                    .child("Your edits have not been saved.")
                     .child(
                         Button::new("discard-metadata")
                             .danger()
                             .label("Discard changes")
                             .on_click(cx.listener(move |this, _, window, cx| {
                                 this.metadata = None;
-                                this.overlay = None;
+                                this.lyric_editor = None;
+                                this.close_overlay(window, cx);
                                 if back {
                                     this.go_back(window, cx);
                                 } else {
@@ -129,7 +173,7 @@ impl MusicApp {
                             .text_color(cx.theme().muted_foreground)
                             .child("A place for your favorite local tracks."),
                     )
-                    .child(Input::new(&self.playlist_name))
+                    .child(inputs::field(&self.playlist_name))
                     .child(
                         Button::new("confirm-create-playlist")
                             .primary()
@@ -148,20 +192,20 @@ impl MusicApp {
             Overlay::RelocateFolder(old) => {
                 content=content.child(div().text_lg().font_weight(FontWeight::SEMIBOLD).child("Relocate music folder"))
                     .child("Choose the new location for this folder. Tracks found at matching relative paths keep their playlists and favorites.")
-                    .child(Input::new(&self.folder_path))
-                    .child(Button::new("confirm-relocate").primary().label("Save and scan").on_click(cx.listener(move |this,_,_,cx| {
+                    .child(inputs::field(&self.folder_path))
+                    .child(Button::new("confirm-relocate").primary().label("Save and scan").on_click(cx.listener(move |this, _, window, cx| {
                         let path=this.folder_path.read(cx).value().trim().to_owned();
                         if path.is_empty() {return;}
                         this.library.cancel.store(false,Ordering::Relaxed);this.scanning=true;
-                        this.send_library(LibraryCommand::RelocateAndScan(old.clone(),PathBuf::from(path)));this.overlay=None;cx.notify();
+                        this.send_library(LibraryCommand::RelocateAndScan(old.clone(),PathBuf::from(path)));this.close_overlay(window,cx);cx.notify();
                     })));
             }
 
             Overlay::Reset(all) => {
                 content=content.child(div().text_lg().font_weight(FontWeight::SEMIBOLD).child("Reset your library?"))
                     .child("Playlists, favorites and play counts will be removed. Your music files remain untouched.")
-                    .child(Button::new("confirm-reset").danger().label("Reset library").on_click(cx.listener(move |this,_,_,cx| {
-                        this.queue.clear();this.stop();this.send_library(LibraryCommand::Reset(all));this.overlay=None;cx.notify();
+                    .child(Button::new("confirm-reset").danger().label("Reset library").on_click(cx.listener(move |this, _, window, cx| {
+                        this.queue.clear();this.stop();this.send_library(LibraryCommand::Reset(all));this.close_overlay(window,cx);cx.notify();
                     })));
             }
             Overlay::Details(song) => {
@@ -209,7 +253,12 @@ impl MusicApp {
                 }
             }
 
-            Overlay::AddToPlaylist(song) => {
+            Overlay::AddToPlaylist(_) | Overlay::AddManyToPlaylist(_) => {
+                let songs = match &overlay {
+                    Overlay::AddToPlaylist(id) => vec![*id],
+                    Overlay::AddManyToPlaylist(ids) => ids.clone(),
+                    _ => unreachable!(),
+                };
                 content = content.child(
                     div()
                         .text_lg()
@@ -222,13 +271,17 @@ impl MusicApp {
                 }
                 for pl in &self.snapshot.playlists {
                     let id = pl.id;
+                    let songs = songs.clone();
                     content = content.child(
                         Button::new(("pick-playlist", id as usize))
                             .label(pl.name.clone())
                             .w_full()
-                            .on_click(cx.listener(move |this, _, _, cx| {
-                                this.send_library(LibraryCommand::AddToPlaylist(id, song));
-                                this.overlay = None;
+                            .on_click(cx.listener(move |this, _, window, cx| {
+                                this.send_library(LibraryCommand::AddManyToPlaylist(
+                                    id,
+                                    songs.clone(),
+                                ));
+                                this.close_overlay(window, cx);
                                 cx.notify();
                             })),
                     );
@@ -247,9 +300,9 @@ impl MusicApp {
                         Button::new("confirm-delete")
                             .danger()
                             .label("Delete playlist")
-                            .on_click(cx.listener(move |this, _, _, cx| {
+                            .on_click(cx.listener(move |this, _, window, cx| {
                                 this.send_library(LibraryCommand::DeletePlaylist(id));
-                                this.overlay = None;
+                                this.close_overlay(window, cx);
                                 cx.notify();
                             })),
                     );
@@ -258,7 +311,7 @@ impl MusicApp {
                 content=content.child(div().text_lg().font_weight(FontWeight::SEMIBOLD).child("Remove this music folder?"))
                     .child(root.display().to_string()).child("Tracks unique to this folder will leave your library and playlists. Files on disk remain untouched.")
                     .child(Button::new("confirm-remove-folder").danger().label("Remove folder")
-                        .on_click(cx.listener(move |this,_,_,cx| {this.send_library(LibraryCommand::RemoveFolder(root.clone()));this.overlay=None;cx.notify();})));
+                        .on_click(cx.listener(move |this, _, window, cx| {this.send_library(LibraryCommand::RemoveFolder(root.clone()));this.close_overlay(window,cx);cx.notify();})));
             }
         }
         content = content.child(
@@ -266,11 +319,16 @@ impl MusicApp {
                 .ghost()
                 .label("Cancel")
                 .on_click(cx.listener(|this, _, window, cx| {
-                    this.overlay = None;
+                    this.close_overlay(window, cx);
                     window.focus(&this.focus, cx);
                     cx.notify();
                 })),
         );
+        let content = content
+            .track_scroll(&self.overlay_scroll)
+            .vertical_scrollbar(&self.overlay_scroll)
+            .focus_trap("modal-focus", &self.overlay_focus)
+            .into_any_element();
         let content = motion::enter(
             div().child(content),
             "dialog-enter",

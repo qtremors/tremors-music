@@ -36,12 +36,15 @@ impl MusicApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if matches!(self.page, Page::Metadata(_))
+        if self.page == page && matches!(page, Page::Metadata(_) | Page::LyricsEditor(_)) {
+            return;
+        }
+        if matches!(self.page, Page::Metadata(_) | Page::LyricsEditor(_))
             && self.page != page
-            && self.metadata.as_ref().is_some_and(|e| e.dirty || e.saving)
+            && (self.draft_dirty() || self.metadata_busy())
         {
             if !self.metadata_busy() {
-                self.overlay = Some(Overlay::DiscardEdits(page, false));
+                self.open_overlay(Overlay::DiscardEdits(page, false), window, cx);
                 cx.notify();
             }
             return;
@@ -53,13 +56,13 @@ impl MusicApp {
     }
 
     pub(in crate::ui) fn go_back(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if matches!(self.page, Page::Metadata(_))
-            && self.metadata.as_ref().is_some_and(|e| e.dirty || e.saving)
+        if matches!(self.page, Page::Metadata(_) | Page::LyricsEditor(_))
+            && (self.draft_dirty() || self.metadata_busy())
         {
             if !self.metadata_busy()
                 && let Some(page) = self.history.last()
             {
-                self.overlay = Some(Overlay::DiscardEdits(page.clone(), true));
+                self.open_overlay(Overlay::DiscardEdits(page.clone(), true), window, cx);
                 cx.notify();
             }
             return;
@@ -70,6 +73,7 @@ impl MusicApp {
     }
 
     fn show_page(&mut self, page: Page, window: &mut Window, cx: &mut Context<Self>) {
+        self.remember_scroll();
         if self.immersive {
             self.fullscreen(window, cx);
         }
@@ -79,21 +83,27 @@ impl MusicApp {
         } else {
             None
         };
+        self.selection_mode = false;
+        self.selected_songs.clear();
         self.page = page;
         self.page_revision += 1;
         self.metadata = None;
+        self.lyric_editor = None;
+        if let Page::LyricsEditor(id) = self.page {
+            self.send_library(LibraryCommand::ReadLyrics(id));
+        }
         if let Some(id) = metadata_id {
             self.send_library(LibraryCommand::ReadMetadata(id));
         }
         self.show_artist_albums = true;
-        self.table_scroll = UniformListScrollHandle::new();
-        self.gallery_scroll = UniformListScrollHandle::new();
-        self.query.clear();
-        self.overlay = None;
-        self.search
-            .update(cx, |input, cx| input.set_value("", window, cx));
+        self.restore_scroll();
+        self.close_overlay(window, cx);
+        self.search.update(cx, |input, cx| {
+            input.set_value(self.query.clone(), window, cx)
+        });
         self.playlist_name
             .update(cx, |input, cx| input.set_value("", window, cx));
+        window.focus(&self.focus, cx);
         self.rebuild();
         cx.notify();
     }
@@ -110,13 +120,13 @@ impl MusicApp {
         }
         self.playlist_name
             .update(cx, |input, cx| input.set_value("", window, cx));
-        self.overlay = None;
-        window.focus(&self.focus, cx);
+        self.close_overlay(window, cx);
         cx.notify();
     }
 
     pub(in crate::ui) fn title(&self) -> String {
         match &self.page {
+            Page::LyricsEditor(_) => "Edit local lyrics".into(),
             Page::Metadata(_) => "Edit metadata".into(),
             Page::RecentlyPlayed => "Recently played".into(),
             Page::Home => "Home".into(),
@@ -142,6 +152,12 @@ impl MusicApp {
                 .map(|p| p.name.clone())
                 .unwrap_or_default(),
             Page::Queue => "Up next".into(),
+            Page::FolderBrowser => "Browse folders".into(),
+            Page::Folder(path) => path
+                .file_name()
+                .unwrap_or(path.as_os_str())
+                .to_string_lossy()
+                .into_owned(),
             Page::Folders => "Music folders".into(),
         }
     }

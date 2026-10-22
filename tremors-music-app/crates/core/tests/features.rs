@@ -368,3 +368,26 @@ fn adding_an_invalid_folder_cannot_start_an_unrelated_scan() {
         LibraryEvent::Snapshot(_)
     ));
 }
+
+#[test]
+fn album_replaygain_selects_album_tags_and_falls_back_to_track_peaks() {
+    use tremors_core::playback::replay_gain;
+    let mut details = TrackDetails::default();
+    details
+        .tags
+        .insert("ReplayGain track".into(), "-6 dB".into());
+    details.tags.insert("ReplayGain peak".into(), "0.8".into());
+    details
+        .tags
+        .insert("ReplayGain album".into(), "6 dB".into());
+    details
+        .tags
+        .insert("ReplayGain album peak".into(), "1.5".into());
+    assert!((replay_gain(&details, true, true) - 2. / 3.).abs() < 0.0001);
+    assert!((replay_gain(&details, true, false) - 0.5011872).abs() < 0.0001);
+    details.tags.remove("ReplayGain album peak");
+    assert_eq!(replay_gain(&details, true, true), 1.25);
+    details.tags.remove("ReplayGain album");
+    assert!((replay_gain(&details, true, true) - 0.5011872).abs() < 0.0001);
+    assert_eq!(replay_gain(&details, false, true), 1.);
+}

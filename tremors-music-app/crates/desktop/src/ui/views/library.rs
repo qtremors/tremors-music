@@ -6,7 +6,14 @@
 use super::*;
 
 impl MusicApp {
-    pub(in crate::ui) fn render_content(&mut self, cx: &mut Context<Self>) -> AnyElement {
+    pub(in crate::ui) fn render_content(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        if matches!(self.page, Page::LyricsEditor(_)) {
+            return self.render_lyric_editor(window, cx);
+        }
         if matches!(self.page, Page::Metadata(_)) {
             return self.render_metadata(cx);
         }
@@ -41,10 +48,10 @@ impl MusicApp {
             );
         }
         if self.page == Page::Home {
-            return self.render_home(cx);
+            return self.render_home(window, cx);
         }
         if self.page == Page::Search && self.query.trim().is_empty() {
-            return self.render_search_start(cx);
+            return self.render_search_start(window, cx);
         }
         if self.rows.is_empty() {
             let (title, description, icon) = match self.page {
@@ -127,10 +134,12 @@ impl MusicApp {
                                             this.render_collection_card(
                                                 this.artist_collections[index].clone(),
                                                 format!("artist-album-{index}"),
+                                                scrolling::FocusTarget::Gallery(index),
+                                                window,
                                                 cx,
                                             )
                                         } else if !artist_gallery && index < this.rows.len() {
-                                            this.render_card(index, cx)
+                                            this.render_card(index, window, cx)
                                         } else {
                                             div().flex_1().min_w_0().p_2().into_any_element()
                                         },
@@ -170,7 +179,13 @@ impl MusicApp {
             .min_h_0()
             .w_full();
             let mut body = div().flex_1().min_h_0().flex().flex_col().px_8().pb_4();
-            if self.page != Page::Search {
+            if self.selection_mode {
+                body = body.child(self.render_selection(cx));
+            }
+            if !matches!(
+                self.page,
+                Page::Search | Page::Folder(_) | Page::FolderBrowser
+            ) {
                 body = body.child(
                     div()
                         .h(px(32.))
@@ -183,6 +198,7 @@ impl MusicApp {
                         .border_color(cx.theme().border)
                         .text_xs()
                         .text_color(cx.theme().muted_foreground)
+                        .when(self.selection_mode, |d| d.child(div().w(px(16.))))
                         .child(div().w(px(36.)).text_center().child("#"))
                         .when(self.preferences.show_artwork, |d| d.child(div().w(px(36.))))
                         .child(div().flex_1().child("Title"))

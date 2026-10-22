@@ -89,7 +89,9 @@ pub fn read(song_id: i64, path: &Path, covers: &Path) -> Result<MetadataDocument
         tag_type: tag.tag_type(),
         original_pictures: tag.pictures().to_vec(),
         stamp: before,
-        has_sidecar_lyrics: path.with_extension("lrc").is_file(),
+        has_sidecar_lyrics: ["lrc", "ttml", "txt"]
+            .into_iter()
+            .any(|ext| path.with_extension(ext).is_file()),
     })
 }
 

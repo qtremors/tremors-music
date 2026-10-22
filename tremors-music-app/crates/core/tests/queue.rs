@@ -83,3 +83,29 @@ fn empty_and_invalid_queue_operations_are_safe() {
     q.clear();
     assert!(q.current().is_none());
 }
+
+#[test]
+fn preloading_peeks_without_advancing_the_queue() {
+    use tremors_core::settings::RepeatMode;
+    let mut queue = tremors_core::queue::Queue::default();
+    queue.replace(
+        (1..=3)
+            .map(|id| tremors_core::model::Song {
+                id,
+                ..Default::default()
+            })
+            .collect(),
+        0,
+    );
+    for repeat in [RepeatMode::Off, RepeatMode::All, RepeatMode::One] {
+        queue.repeat = repeat;
+        for index in 0..3 {
+            queue.select(index);
+            let before = queue.current_index();
+            let peek = queue.peek_next(true).map(|s| s.id);
+            let mut advanced = queue.clone();
+            assert_eq!(peek, advanced.next(true).map(|s| s.id));
+            assert_eq!(queue.current_index(), before);
+        }
+    }
+}

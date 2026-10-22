@@ -14,7 +14,12 @@ pub(super) fn execute(
 ) -> Option<Result<Event>> {
     if !matches!(
         command,
-        Command::ReadMetadata(_)
+        Command::Backup(_)
+            | Command::ReadBackup(_)
+            | Command::RestoreBackup(_)
+            | Command::ReadLyrics(_)
+            | Command::SaveLyrics(_)
+            | Command::ReadMetadata(_)
             | Command::SaveMetadata(..)
             | Command::LoadPicture(..)
             | Command::SetArtwork(..)
@@ -24,6 +29,55 @@ pub(super) fn execute(
         return None;
     }
     Some((|| match command {
+        Command::Backup(path) => {
+            crate::backup::write(library, path)?;
+            Ok(Event::OperationFinished {
+                message: "Curation backup saved.".into(),
+                warnings: vec![],
+            })
+        }
+        Command::ReadBackup(path) => Ok(Event::BackupLoaded(Box::new(crate::backup::read(path)?))),
+        Command::RestoreBackup(restore) => Ok(Event::BackupRestored {
+            warnings: crate::backup::restore(library, paths, restore)?,
+            preferences: restore.preferences.then(|| restore.restored_preferences()),
+        }),
+        Command::ReadLyrics(id) => {
+            let snapshot = library.full_snapshot()?;
+            let song = snapshot
+                .songs
+                .iter()
+                .find(|s| s.id == *id)
+                .context("Track is no longer in the library")?;
+            Ok(Event::LyricsLoaded(crate::lyrics::file::read(song)?))
+        }
+        Command::SaveLyrics(document) => {
+            let snapshot = library.full_snapshot()?;
+            let song = snapshot
+                .songs
+                .iter()
+                .find(|s| s.id == document.song_id)
+                .context("Track is no longer in the library")?;
+            ensure!(
+                ["lrc", "ttml", "txt"]
+                    .into_iter()
+                    .any(|ext| song.path.with_extension(ext) == document.path),
+                "Track changed location; reopen the lyric editor."
+            );
+            crate::lyrics::file::save(document)?;
+            let song = scanner::read_song(&song.path, &paths.covers)?;
+            library.apply_scan(
+                song.path.parent().context("Missing parent folder")?,
+                std::slice::from_ref(&song),
+                &Default::default(),
+                false,
+            )?;
+            Ok(Event::LyricsLoaded(crate::lyrics::file::read(
+                &crate::model::Song {
+                    id: document.song_id,
+                    ..song
+                },
+            )?))
+        }
         Command::ReadMetadata(id) => {
             let snapshot = library.full_snapshot()?;
             let song = snapshot

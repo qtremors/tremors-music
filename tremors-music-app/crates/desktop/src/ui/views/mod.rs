@@ -25,7 +25,7 @@ impl Render for MusicApp {
             .floor()
             .clamp(3., 6.) as usize;
         let header = self.render_header(cx);
-        let content = self.render_content(cx);
+        let content = self.render_content(window, cx);
         let content = div().flex_1().min_h_0().flex().flex_col().child(content);
         let content = motion::enter(
             content,
@@ -34,7 +34,7 @@ impl Render for MusicApp {
         );
         let sidebar = self.render_sidebar(window, cx);
         let player = self.render_player(cx);
-        let overlay = self.render_overlay(cx);
+        let overlay = self.render_overlay(window, cx);
         let immersive = self.render_fullscreen(window, cx).map(|content| {
             motion::enter(
                 div().flex_1().min_h_0().flex().flex_col().child(content),
@@ -52,7 +52,37 @@ impl Render for MusicApp {
             .text_color(cx.theme().foreground)
             .text_sm()
             .track_focus(&self.focus)
-            .key_context("Player")
+            .capture_any_mouse_down(cx.listener(|this, _, window, cx| {
+                if this.overlay.is_none() {
+                    window.focus(&this.focus, cx);
+                }
+            }))
+            .on_scroll_wheel(cx.listener(|this, _, window, cx| {
+                if this.overlay.is_none()
+                    && window.focused(cx).is_some_and(|focus| {
+                        window.is_action_available_in(&ActivateCollection, &focus)
+                    })
+                {
+                    window.focus(&this.focus, cx);
+                }
+            }))
+            .key_context(if self.overlay.is_some() {
+                "PlayerModal"
+            } else {
+                "Player"
+            })
+            .on_action(cx.listener(|this, _: &PageUp, window, cx| {
+                this.keyboard_scroll(-1., false, window, cx)
+            }))
+            .on_action(cx.listener(|this, _: &PageDown, window, cx| {
+                this.keyboard_scroll(1., false, window, cx)
+            }))
+            .on_action(cx.listener(|this, _: &ScrollTop, window, cx| {
+                this.keyboard_scroll(-1., true, window, cx)
+            }))
+            .on_action(cx.listener(|this, _: &ScrollBottom, window, cx| {
+                this.keyboard_scroll(1., true, window, cx)
+            }))
             .on_action(cx.listener(|this, _: &TogglePlayback, _, cx| {
                 this.toggle();
                 this.rebuild();
@@ -100,7 +130,10 @@ impl Render for MusicApp {
                 }
             }))
             .on_action(cx.listener(|this, _: &Escape, window, cx| {
-                this.overlay = None;
+                if this.overlay.is_some() {
+                    this.close_overlay(window, cx);
+                    return;
+                }
                 if this.immersive {
                     this.fullscreen(window, cx);
                 }

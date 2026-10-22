@@ -64,6 +64,23 @@ impl Queue {
         self.current().cloned()
     }
 
+    pub fn peek_next(&self, automatic: bool) -> Option<&Song> {
+        if automatic && self.repeat == RepeatMode::One {
+            return self.current();
+        }
+        let next = self.cursor.map_or(0, |i| i + 1);
+        let index = if next < self.len() {
+            next
+        } else if self.repeat == RepeatMode::All {
+            0
+        } else {
+            return None;
+        };
+        self.order
+            .get(index)
+            .and_then(|index| self.tracks.get(*index))
+    }
+
     pub fn next(&mut self, automatic: bool) -> Option<Song> {
         if self.is_empty() {
             return None;

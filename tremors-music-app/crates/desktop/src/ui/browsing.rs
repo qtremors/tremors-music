@@ -16,6 +16,7 @@ impl MusicApp {
         } else {
             Vec::new()
         };
+        self.sync_preload();
         self.rows = build_rows(
             &self.snapshot,
             &self.page,

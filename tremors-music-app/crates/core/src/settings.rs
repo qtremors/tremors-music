@@ -39,6 +39,11 @@ pub struct Preferences {
     pub show_artwork: bool,
     pub watch_folders: bool,
     pub replay_gain: bool,
+    pub album_replay_gain: bool,
+    pub gapless: bool,
+    pub playback_speed: f32,
+    pub audio_effects: crate::playback::effects::Effects,
+    pub lyric_offsets: std::collections::BTreeMap<PathBuf, i32>,
     pub sort: SongSort,
     pub descending: bool,
 }
@@ -93,6 +98,11 @@ impl Default for Preferences {
             show_artwork: true,
             watch_folders: true,
             replay_gain: false,
+            album_replay_gain: false,
+            gapless: true,
+            playback_speed: 1.,
+            audio_effects: Default::default(),
+            lyric_offsets: Default::default(),
             sort: SongSort::Title,
             descending: false,
         }

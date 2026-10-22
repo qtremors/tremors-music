@@ -97,6 +97,7 @@ impl MusicApp {
             ("Genres", Page::Genres, IconName::Disc3),
             ("Favorites", Page::Favorites, IconName::Heart),
             ("Most played", Page::MostPlayed, IconName::TrendingUp),
+            ("Browse folders", Page::FolderBrowser, IconName::Folder),
         ] {
             navigation = navigation.child(self.sidebar_link(label, page, icon, cx));
         }
@@ -125,9 +126,8 @@ impl MusicApp {
                             .on_click(cx.listener(|this, _, window, cx| {
                                 this.playlist_name.update(cx, |input, cx| {
                                     input.set_value("", window, cx);
-                                    input.focus(window, cx);
                                 });
-                                this.overlay = Some(Overlay::CreatePlaylist);
+                                this.open_overlay(Overlay::CreatePlaylist, window, cx);
                                 cx.notify();
                             })),
                     ),

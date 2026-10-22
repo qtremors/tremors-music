@@ -39,18 +39,19 @@ Windows builds include a per-user installer and a portable ZIP, with correspondi
 
 - **Library home:** Rediscover recently added albums, records in your rotation, and your own playlists, all drawn from music on your device.
 - **Local library:** Browse artwork galleries for albums, artists, genres, and playlists. Open album details, switch between an artist’s albums and songs, or use compact song tables with global search and sorting.
-- **Desktop layout:** Keep playback, progress, volume, favorites, lyrics, and Up next within reach in the persistent top player. Use the grouped sidebar to move through your library.
-- **Music folders:** Choose folders with a native picker or typed paths. Scan incrementally, watch for changes, cancel scans, and relocate folders while retaining matching records.
-- **Playback:** Play, pause, seek, shuffle, repeat, adjust volume, and use desktop media controls on Windows and Linux.
-- **Queues and playlists:** Play next, add and reorder tracks, preserve duplicate entries, and create, rename, or delete playlists.
+- **Desktop layout:** Keep playback, progress, volume, favorites, lyrics, and Up next within reach in the compact top player. Use the grouped sidebar to move through your library.
+- **Music folders:** Browse indexed directories and subfolders, play a whole subtree, or choose folders with a native picker or typed paths. Scan incrementally, watch for changes, cancel scans, and relocate folders while retaining matching records.
+- **Playback:** Gapless preloading, transport controls, shuffle/repeat, desktop media controls, 10-band EQ with presets, preamp, balance, and 0.5–2× speed (tempo and pitch change together).
+- **Queues and playlists:** Select multiple songs for queue, playlist, and favorite actions. Play next, add and reorder tracks, preserve duplicate entries, and create, rename, or delete playlists.
 - **Resume listening:** Save your queue and position. Reopening restores playback paused.
-- **Lyrics:** Read embedded plain lyrics, LRC, and millisecond ID3 SYLT, or matching local `.lrc` files. Follow timed lyrics and select a line to seek.
+- **Lyrics:** Read plain lyrics, LRC, enhanced LRC word timing, common TTML timing, and millisecond ID3 SYLT. Follow or seek by line, adjust a saved per-track offset, and edit local lyric sidecars with conflict and unsaved-edit guards.
 - **Personalization:** Light, dark, and true-black OLED themes, seven accents, reduced motion, artwork visibility, fullscreen playback, and keyboard shortcuts.
 - **Metadata editing:** Edit standard and extended tags, embedded lyrics, and artwork in each file’s supported format. Saving validates a temporary copy before replacing the original; library identity and curation are retained.
 - **Sleep timer:** Choose 5–90 minutes, an optional final fade, and whether to finish the current track.
 - **Portable playlists:** Import UTF-8 M3U/M3U8 files and export playlists with relative paths, preserving order and repeated tracks.
 - **Library tools:** Recently played tracks, local folder covers, custom artist and playlist images, folder exclusions, and a minimum-duration filter.
-- **ReplayGain:** Optional track normalization with peak limiting.
+- **ReplayGain:** Optional track or album normalization with peak limiting.
+- **Backup and restore:** Save playlists, favorites, play history, preferences, and custom artwork in a local curation archive. Review restores and map a moved music folder before merging.
 
 Supported formats are MP3, FLAC, PCM WAV, Ogg Vorbis, AAC/ADTS, and AAC or ALAC in M4A. WMA and Opus are not supported.
 
@@ -62,11 +63,17 @@ Supported formats are MP3, FLAC, PCM WAV, Ogg Vorbis, AAC/ADTS, and AAC or ALAC 
 
 Use the **+** beside **Playlists** to create a mix, and the playlist’s **…** menu to rename or delete it. Use Play next, and reorder your queue with buttons or drag-and-drop. The queue and position are saved; reopening restores playback paused. Folder watching picks up changes automatically and can be disabled. Manual rescans, scan cancellation, and folder relocation are available in Music folders.
 
-A matching UTF-8 `.lrc` file takes precedence over embedded lyrics. Timed lyrics highlight during playback; select a line to seek. Sidecar lyric files remain unchanged. To edit embedded tags, lyrics, or artwork, use **Edit metadata** in a track’s menu and choose **Save to file**. Music folders displays the local data directory; see [PRIVACY.md](PRIVACY.md) for storage and reset behavior.
+Matching UTF-8 `.lrc`, `.ttml`, and `.txt` files take precedence over embedded lyrics, in that order. Timed lyrics highlight during playback; select a line to seek. **Lyrics → Edit lyrics** opens the local sidecar editor; **Save lyrics** writes only that sidecar. The timing controls delay or advance lyrics by 100 ms per step and save the offset for that track. TTML support covers clock-time paragraphs/spans and text; styling and frame/tick timing are not supported. To edit embedded tags, lyrics, or artwork, use **Edit metadata** in a track’s menu and choose **Save to file**. Music folders displays the local data directory; see [PRIVACY.md](PRIVACY.md) for storage and reset behavior.
+
+Home shelves scroll horizontally with their arrow controls or a horizontal gesture; vertical scrolling moves the page. Browsing positions and search queries are restored when you return. Scrolling timed lyrics pauses automatic following; choose **Resume following** to return to the current line.
 
 Choose **OLED** in **Settings → Appearance** for true-black surfaces. **Reduce motion** disables entry transitions. Open the clock button in the player for the sleep timer. Use **Import M3U** on All playlists and **Export M3U** within a playlist. Missing or unsupported import entries are reported under Music folders; valid entries retain their order. Exported relative paths require the music files to move with the playlist.
 
-Music folders includes non-destructive duration and folder filters. Scans prefer embedded covers, then `cover.jpg`, `cover.png`, `folder.jpg`, or `folder.png` beside the music. Use **Artwork** on artist and playlist pages for a local image override.
+**Browse folders** opens the indexed directory tree; **Music folders** manages scan roots and non-destructive duration/folder filters. Scans prefer embedded covers, then `cover.jpg`, `cover.png`, `folder.jpg`, or `folder.png` beside the music. Use **Artwork** on artist and playlist pages for a local image override.
+
+Use **Select** above a song list for bulk queue, playlist, and favorite actions. Selection is scoped to the current page and clears on navigation or a new search. In **Settings → Sound**, EQ, preamp, balance, and speed changes apply during playback; ReplayGain mode applies when a track starts. Gapless preloading yields to the sleep timer.
+
+Use **Settings → Backup & restore** for a `.tremors-backup` file. Restore adds playlists alongside existing ones, merges favorites and history without adding play counts twice, and optionally restores preferences. Scan your music first; map one original root to its new location if needed. Unmatched tracks are skipped and reported. Archives include local paths and custom images, exclude the music files, and are limited to 32 MiB.
 
 ### Keyboard shortcuts
 
@@ -82,13 +89,16 @@ Music folders includes non-destructive duration and folder filters. Scans prefer
 | Ctrl + L | Show lyrics |
 | Ctrl + F, or F11 | Toggle fullscreen player |
 | Alt + Left | Go back |
+| Page Up / Page Down | Scroll the current page |
+| Home / End | Go to the beginning / end |
+| Enter / Space on a collection | Open the focused collection |
 | Escape | Close an overlay / leave fullscreen |
 
 Playback shortcuts are disabled while editing text. Ctrl + K, F11, and Escape remain available in inputs.
 
 ## Privacy
 
-The desktop app processes music locally, with no accounts, telemetry, uploads, cloud sync, online metadata lookups, or automatic update checks. Music files change only when you explicitly save metadata; sidecar lyrics remain unchanged.
+The desktop app processes music locally, with no accounts, telemetry, uploads, cloud sync, online metadata lookups, or automatic update checks. Music files change only when you explicitly save metadata; lyric sidecars change only when you choose **Save lyrics**.
 
 Read [PRIVACY.md](PRIVACY.md) for stored data, local diagnostics, desktop integration, backup and removal, and the separate requests made by the project website.
 

@@ -11,7 +11,12 @@ pub(super) fn enter(element: Div, key: impl Into<ElementId>, reduced: bool) -> A
             .with_animation(
                 key,
                 Animation::new(Duration::from_millis(180)),
-                |element, delta| element.opacity(0.7 + 0.3 * delta),
+                |element, delta| {
+                    element
+                        .relative()
+                        .top(px(4. * (1. - delta)))
+                        .opacity(0.7 + 0.3 * delta)
+                },
             )
             .into_any_element()
     }

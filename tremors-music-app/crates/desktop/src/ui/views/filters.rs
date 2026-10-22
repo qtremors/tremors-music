@@ -9,7 +9,7 @@ impl MusicApp {
             .child(div().text_lg().font_weight(FontWeight::SEMIBOLD).child("Library filters"))
             .child(div().text_sm().text_color(cx.theme().muted_foreground).child("Hide short tracks and excluded folders without losing favorites, playlists, or play counts. Use 0 to include every duration."))
             .child(div().flex().items_center().gap_3()
-                .child(div().w(px(170.)).child(Input::new(&self.minimum_duration)))
+                .child(div().w(px(170.)).child(inputs::field(&self.minimum_duration)))
                 .child(Button::new("apply-minimum-duration").label("Apply duration filter").on_click(cx.listener(|this,_,_,cx| {
                     match this.minimum_duration.read(cx).value().trim().parse::<u32>() {
                         Ok(seconds) if seconds <= 86400 => { this.preferences.minimum_duration = seconds; this.persist_modes(); this.status = "Library filter updated.".into(); },

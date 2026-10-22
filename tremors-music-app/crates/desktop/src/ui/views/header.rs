@@ -22,7 +22,7 @@ impl MusicApp {
 
     pub(in crate::ui) fn render_header(&mut self, cx: &mut Context<Self>) -> AnyElement {
         let toolbar = div()
-            .h(px(52.))
+            .h(px(48.))
             .flex_shrink_0()
             .px_8()
             .flex()
@@ -42,11 +42,12 @@ impl MusicApp {
                     })),
             )
             .child(
-                div().w(px(300.)).child(
-                    Input::new(&self.search)
-                        .small()
-                        .disabled(matches!(self.page, Page::Metadata(_))),
-                ),
+                div()
+                    .w(px(300.))
+                    .child(inputs::search(&self.search).disabled(matches!(
+                        self.page,
+                        Page::Metadata(_) | Page::LyricsEditor(_)
+                    ))),
             )
             .child(div().flex_1())
             .child(
@@ -106,9 +107,14 @@ impl MusicApp {
             ),
             Page::Favorites => format!("{} · The songs you love", count_label(count, "favorite")),
             Page::Recent => format!("{track_count} · The latest in your library"),
+            Page::LyricsEditor(_) => {
+                "Plain, line-timed or word-timed lyrics. Saved beside your music.".into()
+            }
             Page::Metadata(_) => "Tags, lyrics and artwork in your local files.".into(),
             Page::RecentlyPlayed => format!("{track_count} · Back to what you love"),
             Page::MostPlayed => format!("{track_count} · Worth another listen"),
+            Page::FolderBrowser => "Browse the folders in your local library.".into(),
+            Page::Folder(path) => path.display().to_string(),
             Page::Folders => "Make room for your collection.".into(),
             Page::Settings => "Make yourself at home.".into(),
             Page::Lyrics => "Every word, from your own music files.".into(),
@@ -215,9 +221,8 @@ impl MusicApp {
                     .on_click(cx.listener(|this, _, window, cx| {
                         this.playlist_name.update(cx, |input, cx| {
                             input.set_value("", window, cx);
-                            input.focus(window, cx);
                         });
-                        this.overlay = Some(Overlay::CreatePlaylist);
+                        this.open_overlay(Overlay::CreatePlaylist, window, cx);
                         cx.notify();
                     })),
             );
@@ -286,17 +291,16 @@ impl MusicApp {
                                         .unwrap_or_default();
                                     this.playlist_name.update(cx, |input, cx| {
                                         input.set_value(name, window, cx);
-                                        input.focus(window, cx);
                                     });
-                                    this.overlay = Some(Overlay::RenamePlaylist(id));
+                                    this.open_overlay(Overlay::RenamePlaylist(id), window, cx);
                                     cx.notify();
                                 });
                             },
                         ))
                         .item(
-                            PopupMenuItem::new("Delete playlist").on_click(move |_, _, cx| {
+                            PopupMenuItem::new("Delete playlist").on_click(move |_, window, cx| {
                                 let _ = delete_view.update(cx, |this, cx| {
-                                    this.overlay = Some(Overlay::DeletePlaylist(id));
+                                    this.open_overlay(Overlay::DeletePlaylist(id), window, cx);
                                     cx.notify();
                                 });
                             }),
@@ -315,6 +319,45 @@ impl MusicApp {
                         this.pick_file(super::super::file_tasks::FileTask::ExportPlaylist(
                             id, true,
                         ));
+                        cx.notify();
+                    })),
+            );
+        }
+        if let Page::Folder(folder) = self.page.clone() {
+            actions = actions.child(
+                Button::new("play-folder-tree")
+                    .label("Play folder & subfolders")
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        let songs: Vec<_> = this
+                            .snapshot
+                            .songs
+                            .iter()
+                            .filter(|s| s.path.starts_with(&folder))
+                            .cloned()
+                            .collect();
+                        if !songs.is_empty() {
+                            this.queue.replace(songs, 0);
+                            this.load_current();
+                            this.rebuild();
+                            cx.notify();
+                        }
+                    })),
+            );
+        }
+        if count > 0 {
+            actions = actions.child(
+                Button::new("select-tracks")
+                    .ghost()
+                    .small()
+                    .label(if self.selection_mode {
+                        "Done"
+                    } else {
+                        "Select"
+                    })
+                    .selected(self.selection_mode)
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        this.selection_mode = !this.selection_mode;
+                        this.selected_songs.clear();
                         cx.notify();
                     })),
             );
@@ -367,7 +410,9 @@ impl MusicApp {
         }
         heading = heading.child(
             div()
-                .text_3xl()
+                .when(detail, |d| d.text_3xl())
+                .when(!detail, |d| d.text_2xl())
+                .line_clamp(2)
                 .font_weight(FontWeight::BOLD)
                 .child(self.title()),
         );
@@ -392,15 +437,22 @@ impl MusicApp {
                     .text_color(cx.theme().muted_foreground)
                     .child(description),
             )
-            .child(div().mt_3().child(actions));
+            .when(
+                count > 0
+                    || matches!(
+                        self.page,
+                        Page::Playlists | Page::Artist(_) | Page::Queue | Page::Folder(_)
+                    ),
+                |d| d.child(div().mt_3().child(actions)),
+            );
         let cover = artwork_key
             .and_then(|key| self.snapshot.artwork.get(&key).cloned())
             .or_else(|| songs.iter().find_map(|song| song.cover.clone()));
-        let mut hero = div().px_8().pt_6().pb_5().flex().items_center().gap_6();
+        let mut hero = div().px_8().pt_5().pb_4().flex().items_center().gap_6();
         if detail {
             hero = hero.child(
                 div()
-                    .w(px(if self.gallery_columns < 4 { 140. } else { 184. }))
+                    .w(px(if self.gallery_columns < 4 { 120. } else { 160. }))
                     .flex_shrink_0()
                     .child(collection_artwork(
                         cover,

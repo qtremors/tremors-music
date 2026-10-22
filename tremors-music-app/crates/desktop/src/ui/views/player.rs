@@ -18,7 +18,7 @@ impl MusicApp {
             .map(|s| s.artist.clone())
             .unwrap_or_else(|| "Your music. Your space.".into());
         let mut transport = div()
-            .w(px(184.))
+            .w(px(176.))
             .flex_shrink_0()
             .flex()
             .items_center()
@@ -120,8 +120,8 @@ impl MusicApp {
             .flex()
             .items_center()
             .gap_3()
-            .px_3()
-            .py_2()
+            .px_2()
+            .py_1()
             .rounded_md()
             .bg(cx.theme().muted)
             .child(
@@ -131,7 +131,7 @@ impl MusicApp {
                     .child(motion::enter(
                         div().child(cover_element(
                             current.as_ref().and_then(|s| s.cover.clone()),
-                            44.,
+                            40.,
                             cx,
                         )),
                         SharedString::from(format!(
@@ -151,19 +151,31 @@ impl MusicApp {
                     .flex_col()
                     .child(
                         div()
-                            .truncate()
-                            .text_center()
-                            .text_xs()
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .child(title),
-                    )
-                    .child(
-                        div()
-                            .truncate()
-                            .text_center()
-                            .text_xs()
-                            .text_color(cx.theme().muted_foreground)
-                            .child(artist),
+                            .flex()
+                            .items_center()
+                            .gap_2()
+                            .min_w_0()
+                            .child(
+                                div()
+                                    .truncate()
+                                    .text_xs()
+                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .child(title),
+                            )
+                            .child(
+                                div()
+                                    .flex_shrink_0()
+                                    .text_xs()
+                                    .text_color(cx.theme().muted_foreground)
+                                    .child("·"),
+                            )
+                            .child(
+                                div()
+                                    .truncate()
+                                    .text_xs()
+                                    .text_color(cx.theme().muted_foreground)
+                                    .child(artist),
+                            ),
                     )
                     .child(
                         div()
@@ -246,8 +258,8 @@ impl MusicApp {
                     } else {
                         format!("Sleep timer · {}", self.timer_label)
                     })
-                    .on_click(cx.listener(|this, _, _, cx| {
-                        this.overlay = Some(Overlay::SleepTimer);
+                    .on_click(cx.listener(|this, _, window, cx| {
+                        this.open_overlay(Overlay::SleepTimer, window, cx);
                         cx.notify();
                     })),
             )
@@ -282,9 +294,9 @@ impl MusicApp {
                     .on_click(cx.listener(|this, _, window, cx| this.fullscreen(window, cx))),
             );
         div()
-            .h(px(84.))
+            .h(px(64.))
             .flex_shrink_0()
-            .px_4()
+            .px_6()
             .flex()
             .items_center()
             .gap_3()

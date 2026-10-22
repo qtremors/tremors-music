@@ -19,7 +19,13 @@ impl MusicApp {
             div()
                 .flex()
                 .gap_3()
-                .child(div().flex_1().child(Input::new(&self.folder_path)))
+                .items_center()
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w_0()
+                        .child(inputs::field(&self.folder_path)),
+                )
                 .child(
                     Button::new("add-folder-path")
                         .label("Add path")
@@ -65,7 +71,11 @@ impl MusicApp {
                                 this.folder_path.update(cx, |input, cx| {
                                     input.set_value(edit_root.display().to_string(), window, cx)
                                 });
-                                this.overlay = Some(Overlay::RelocateFolder(edit_root.clone()));
+                                this.open_overlay(
+                                    Overlay::RelocateFolder(edit_root.clone()),
+                                    window,
+                                    cx,
+                                );
                                 cx.notify();
                             })),
                     )
@@ -74,8 +84,8 @@ impl MusicApp {
                             .ghost()
                             .label("Remove")
                             .disabled(self.scanning)
-                            .on_click(cx.listener(move |this, _, _, cx| {
-                                this.overlay = Some(Overlay::RemoveFolder(root.clone()));
+                            .on_click(cx.listener(move |this, _, window, cx| {
+                                this.open_overlay(Overlay::RemoveFolder(root.clone()), window, cx);
                                 cx.notify();
                             })),
                     ),
@@ -99,6 +109,8 @@ impl MusicApp {
                 body = body.child(div().text_sm().child(warning.clone()));
             }
         }
-        body.overflow_y_scrollbar().into_any_element()
+        body.track_scroll(&self.page_scroll)
+            .vertical_scrollbar(&self.page_scroll)
+            .into_any_element()
     }
 }

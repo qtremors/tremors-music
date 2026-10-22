@@ -1,11 +1,25 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright (C) 2025-2026 Tremors and contributors
 
+pub mod effects;
+#[cfg(any(windows, target_os = "linux"))]
+mod source;
+#[cfg(any(windows, target_os = "linux"))]
+mod worker;
+
 use std::{
     path::PathBuf,
     sync::mpsc::{self, Receiver, Sender},
     time::Duration,
 };
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct NextTrack {
+    pub song_id: i64,
+    pub path: PathBuf,
+    pub gain: f32,
+    pub token: u64,
+}
 
 #[derive(Debug)]
 pub enum AudioCommand {
@@ -16,6 +30,12 @@ pub enum AudioCommand {
         start: Duration,
         gain: f32,
     },
+    PrepareNext {
+        generation: u64,
+        track: Option<NextTrack>,
+    },
+    Effects(effects::Effects),
+    Speed(f32),
     Pause,
     Resume,
     Seek(Duration),
@@ -23,11 +43,24 @@ pub enum AudioCommand {
     Stop,
     /// Release the decoder before replacing a file in the metadata worker.
     Release(Sender<()>),
+    ReleaseForEdit {
+        path: PathBuf,
+        ack: Sender<()>,
+    },
     Fade(f32),
 }
 
 #[derive(Debug)]
 pub enum AudioEvent {
+    EditReady {
+        generation: u64,
+        released: bool,
+    },
+    Advanced {
+        generation: u64,
+        track: NextTrack,
+        duration: Option<Duration>,
+    },
     Loaded {
         song_id: i64,
         generation: u64,
@@ -65,178 +98,19 @@ pub fn spawn() -> AudioHandle {
 
 #[cfg(any(windows, target_os = "linux"))]
 fn worker(rx: Receiver<AudioCommand>, tx: Sender<AudioEvent>) {
-    use rodio::{Decoder, DeviceSinkBuilder, Player, Source};
-    let mut device = None;
-    let mut player: Option<Player> = None;
-    let mut generation = 0;
-    let mut volume = 0.7;
-    let mut awaiting_end = false;
-    let mut gain = 1.;
-    let mut fade = 1.;
-    let (device_tx, device_rx) = mpsc::channel::<String>();
-    loop {
-        while let Ok(message) = device_rx.try_recv() {
-            if let Some(p) = player.take() {
-                p.stop();
-            }
-            device = None;
-            awaiting_end = false;
-            let _ = tx.send(AudioEvent::Error {
-                generation,
-                message: format!("Audio device error: {message}. Press Play to reconnect."),
-                fatal: true,
-            });
-        }
-        match rx.recv_timeout(Duration::from_millis(100)) {
-            Ok(AudioCommand::Load {
-                song_id,
-                path,
-                generation: next,
-                start,
-                gain: track_gain,
-            }) => {
-                generation = next;
-                gain = if track_gain.is_finite() {
-                    track_gain.clamp(0., 4.)
-                } else {
-                    1.
-                };
-                awaiting_end = false;
-                if let Some(p) = player.take() {
-                    p.stop();
-                }
-                let result = (|| -> anyhow::Result<_> {
-                    if device.is_none() {
-                        let errors = device_tx.clone();
-                        device = Some(
-                            DeviceSinkBuilder::from_default_device()?
-                                .with_error_callback(move |error| {
-                                    let _ = errors.send(error.to_string());
-                                })
-                                .open_sink_or_fallback()?,
-                        );
-                    }
-                    let source = Decoder::try_from(std::fs::File::open(&path)?)?;
-                    let duration = source.total_duration();
-                    let p = Player::connect_new(device.as_ref().unwrap().mixer());
-                    p.pause();
-                    p.set_volume(volume * gain * fade);
-                    p.append(source);
-                    if start > Duration::ZERO {
-                        p.try_seek(start)?;
-                    }
-                    p.play();
-                    Ok((p, duration))
-                })();
-                match result {
-                    Ok((p, duration)) => {
-                        player = Some(p);
-                        awaiting_end = true;
-                        if tx
-                            .send(AudioEvent::Loaded {
-                                song_id,
-                                generation,
-                                duration,
-                            })
-                            .is_err()
-                        {
-                            break;
-                        }
-                    }
-                    Err(e) => {
-                        let _ = tx.send(AudioEvent::Error {
-                            generation,
-                            message: format!("Cannot play {}: {e:#}", path.display()),
-                            fatal: true,
-                        });
-                    }
-                }
-            }
-            Ok(AudioCommand::Pause) => {
-                if let Some(p) = &player {
-                    p.pause();
-                }
-            }
-            Ok(AudioCommand::Resume) => {
-                if let Some(p) = &player {
-                    p.play();
-                }
-            }
-            Ok(AudioCommand::Volume(v)) => {
-                volume = if v.is_finite() { v.clamp(0., 1.) } else { 0.7 };
-                if let Some(p) = &player {
-                    p.set_volume(volume * gain * fade);
-                }
-            }
-            Ok(AudioCommand::Seek(position)) => {
-                if let Some(p) = &player
-                    && let Err(e) = p.try_seek(position)
-                {
-                    let _ = tx.send(AudioEvent::Error {
-                        generation,
-                        message: format!("Seek failed: {e}"),
-                        fatal: false,
-                    });
-                }
-            }
-            Ok(AudioCommand::Fade(value)) => {
-                fade = if value.is_finite() {
-                    value.clamp(0., 1.)
-                } else {
-                    1.
-                };
-                if let Some(p) = &player {
-                    p.set_volume(volume * gain * fade);
-                }
-            }
-            Ok(AudioCommand::Release(ack)) => {
-                if let Some(p) = player.take() {
-                    p.stop();
-                }
-                // Dropping the stream also drops mixer-owned decoder sources.
-                device = None;
-                awaiting_end = false;
-                let _ = ack.send(());
-            }
-            Ok(AudioCommand::Stop) => {
-                if let Some(p) = player.take() {
-                    p.stop();
-                }
-                awaiting_end = false;
-            }
-            Err(mpsc::RecvTimeoutError::Disconnected) => break,
-            Err(mpsc::RecvTimeoutError::Timeout) => {}
-        }
-        if let Some(p) = &player {
-            if awaiting_end && p.empty() {
-                awaiting_end = false;
-                if tx.send(AudioEvent::Finished { generation }).is_err() {
-                    break;
-                }
-            } else if tx
-                .send(AudioEvent::Position {
-                    generation,
-                    position: p.get_pos(),
-                    paused: p.is_paused(),
-                })
-                .is_err()
-            {
-                break;
-            }
-        }
-    }
+    worker::run(rx, tx);
 }
 
 #[cfg(not(any(windows, target_os = "linux")))]
 fn worker(rx: Receiver<AudioCommand>, tx: Sender<AudioEvent>) {
     while let Ok(command) = rx.recv() {
-        if let AudioCommand::Release(ack) = &command {
+        if let AudioCommand::Release(ack) | AudioCommand::ReleaseForEdit { ack, .. } = &command {
             let _ = ack.send(());
         }
         if let AudioCommand::Load { generation, .. } = command {
             let _ = tx.send(AudioEvent::Error {
                 generation,
-                message: "Native audio output currently targets Windows".into(),
+                message: "Audio output requires Windows or Linux".into(),
                 fatal: true,
             });
         }
@@ -245,12 +119,21 @@ fn worker(rx: Receiver<AudioCommand>, tx: Sender<AudioEvent>) {
 
 /// Track ReplayGain with peak limiting; invalid/missing tags leave the gain unchanged.
 pub fn track_gain(details: &crate::model::TrackDetails, enabled: bool) -> f32 {
+    replay_gain(details, enabled, false)
+}
+
+pub fn replay_gain(details: &crate::model::TrackDetails, enabled: bool, album: bool) -> f32 {
     if !enabled {
         return 1.;
     }
     let Some(db) = details
         .tags
-        .get("ReplayGain track")
+        .get(if album {
+            "ReplayGain album"
+        } else {
+            "ReplayGain track"
+        })
+        .or_else(|| details.tags.get("ReplayGain track"))
         .and_then(|s| s.split_whitespace().next())
         .and_then(|s| s.parse::<f32>().ok())
         .filter(|v| v.is_finite())
@@ -260,8 +143,13 @@ pub fn track_gain(details: &crate::model::TrackDetails, enabled: bool) -> f32 {
     let mut gain = 10_f32.powf(db.clamp(-60., 12.) / 20.).min(4.);
     if let Some(peak) = details
         .tags
-        .get("ReplayGain peak")
-        .and_then(|s| s.parse::<f32>().ok())
+        .get(if album && details.tags.contains_key("ReplayGain album") {
+            "ReplayGain album peak"
+        } else {
+            "ReplayGain peak"
+        })
+        .or_else(|| details.tags.get("ReplayGain peak"))
+        .and_then(|s| s.trim().parse::<f32>().ok())
         .filter(|v| v.is_finite() && *v > 0.)
     {
         gain = gain.min(1. / peak);

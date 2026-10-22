@@ -30,7 +30,7 @@ impl MusicApp {
     pub(in crate::ui) fn render_row(
         &mut self,
         index: usize,
-        _window: &mut Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let Some(row) = self.rows.get(index).cloned() else {
@@ -42,34 +42,64 @@ impl MusicApp {
                 subtitle,
                 cover,
                 page,
-            } => div()
-                .id(("group", index))
-                .w_full()
-                .h(px(52.))
-                .px_4()
-                .flex()
-                .items_center()
-                .gap_4()
-                .cursor_pointer()
-                .hover(|s| s.bg(cx.theme().muted))
-                .child(cover_element(cover, 36., cx))
-                .child(
-                    div()
-                        .flex_1()
-                        .min_w_0()
-                        .child(div().font_weight(FontWeight::SEMIBOLD).child(title))
-                        .child(
-                            div()
-                                .text_sm()
-                                .text_color(cx.theme().muted_foreground)
-                                .child(subtitle),
-                        ),
-                )
-                .child(Icon::new(IconName::ChevronRight))
-                .on_click(
-                    cx.listener(move |this, _, window, cx| this.navigate(page.clone(), window, cx)),
-                )
-                .into_any_element(),
+            } => {
+                let focus = self.collection_focus(
+                    &format!("table-{}-{index}", self.page_revision),
+                    super::super::scrolling::FocusTarget::Table(index),
+                    window,
+                    cx,
+                );
+                let activated = page.clone();
+                div()
+                    .id(("group", index))
+                    .track_focus(&focus)
+                    .tab_stop(true)
+                    .key_context("CollectionCard")
+                    .role(gpui_kit::accesskit::Role::Button)
+                    .aria_label(format!("Open {title}"))
+                    .focus_visible(|d| {
+                        d.bg(cx.theme().muted)
+                            .border_1()
+                            .border_color(cx.theme().primary)
+                    })
+                    .on_action(
+                        cx.listener(move |this, _: &ActivateCollection, window, cx| {
+                            this.navigate(activated.clone(), window, cx)
+                        }),
+                    )
+                    .w_full()
+                    .h(px(52.))
+                    .px_4()
+                    .flex()
+                    .items_center()
+                    .gap_4()
+                    .cursor_pointer()
+                    .hover(|s| s.bg(cx.theme().muted))
+                    .child(cover_element(cover, 36., cx))
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .child(
+                                div()
+                                    .truncate()
+                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .child(title),
+                            )
+                            .child(
+                                div()
+                                    .truncate()
+                                    .text_sm()
+                                    .text_color(cx.theme().muted_foreground)
+                                    .child(subtitle),
+                            ),
+                    )
+                    .child(Icon::new(IconName::ChevronRight))
+                    .on_click(cx.listener(move |this, _, window, cx| {
+                        this.navigate(page.clone(), window, cx)
+                    }))
+                    .into_any_element()
+            }
             Row::Song {
                 song,
                 entry,
@@ -95,6 +125,21 @@ impl MusicApp {
                     .hover(|s| s.bg(cx.theme().muted))
                     .when(playing, |s| s.bg(cx.theme().muted));
                 row = row
+                    .when(self.selection_mode, |row| {
+                        row.child(
+                            Checkbox::new(("select-song", index))
+                                .accessibility_label(format!("Select {}", song.title))
+                                .checked(self.selected_songs.contains(&id))
+                                .on_click(cx.listener(move |this, checked: &bool, _, cx| {
+                                    if *checked {
+                                        this.selected_songs.insert(id);
+                                    } else {
+                                        this.selected_songs.remove(&id);
+                                    }
+                                    cx.notify();
+                                })),
+                        )
+                    })
                     .child(
                         Button::new(("play-track", index))
                             .ghost()
@@ -231,29 +276,7 @@ impl MusicApp {
                                 cx.notify();
                             })),
                     );
-                if let Some(qindex) = queue_index {
-                    row = row.child(
-                        Button::new(("queue-remove", index))
-                            .ghost()
-                            .small()
-                            .icon(Icon::new(IconName::X))
-                            .tooltip("Remove from queue")
-                            .on_click(cx.listener(move |this, _, _, cx| {
-                                let was_playing = this.is_playing || this.loading;
-                                let current_removed = this.queue.remove(qindex);
-                                if current_removed {
-                                    if this.queue.is_empty() || !was_playing {
-                                        this.stop();
-                                    } else {
-                                        this.load_current();
-                                    }
-                                }
-                                this.persist_queue();
-                                this.rebuild();
-                                cx.notify();
-                            })),
-                    );
-                } else if let (Page::Playlist(playlist), Some(entry)) = (self.page.clone(), entry) {
+                if let (Page::Playlist(playlist), Some(entry)) = (self.page.clone(), entry) {
                     row = row
                         .child(
                             Button::new(("up", index))
@@ -298,6 +321,7 @@ impl MusicApp {
                                 .ghost()
                                 .small()
                                 .icon(Icon::new(icon))
+                                .tooltip(if delta < 0 { "Move up" } else { "Move down" })
                                 .disabled(
                                     (delta < 0 && qindex == 0)
                                         || (delta > 0 && qindex + 1 >= self.queue.len()),
@@ -311,6 +335,29 @@ impl MusicApp {
                                 })),
                         );
                     }
+                }
+                if let Some(qindex) = queue_index {
+                    row = row.child(
+                        Button::new(("queue-remove", index))
+                            .ghost()
+                            .small()
+                            .icon(Icon::new(IconName::X))
+                            .tooltip("Remove from queue")
+                            .on_click(cx.listener(move |this, _, _, cx| {
+                                let was_playing = this.is_playing || this.loading;
+                                let current_removed = this.queue.remove(qindex);
+                                if current_removed {
+                                    if this.queue.is_empty() || !was_playing {
+                                        this.stop();
+                                    } else {
+                                        this.load_current();
+                                    }
+                                }
+                                this.persist_queue();
+                                this.rebuild();
+                                cx.notify();
+                            })),
+                    );
                 }
                 let playlist = if let (Page::Playlist(pl), Some(entry)) = (&self.page, entry) {
                     Some((*pl, entry))
@@ -385,9 +432,11 @@ impl MusicApp {
                                             "Favorite / unfavorite" => {
                                                 this.send_library(LibraryCommand::Favorite(song.id))
                                             }
-                                            "Add to playlist" => {
-                                                this.overlay = Some(Overlay::AddToPlaylist(song.id))
-                                            }
+                                            "Add to playlist" => this.open_overlay(
+                                                Overlay::AddToPlaylist(song.id),
+                                                window,
+                                                cx,
+                                            ),
                                             "Go to album" => this.navigate(
                                                 Page::Album(
                                                     song.album.clone(),
@@ -401,11 +450,11 @@ impl MusicApp {
                                                 window,
                                                 cx,
                                             ),
-                                            _ => {
-                                                this.overlay = Some(Overlay::Details(Box::new(
-                                                    (*song).clone(),
-                                                )))
-                                            }
+                                            _ => this.open_overlay(
+                                                Overlay::Details(Box::new((*song).clone())),
+                                                window,
+                                                cx,
+                                            ),
                                         }
                                         cx.notify();
                                     });
@@ -428,17 +477,30 @@ impl MusicApp {
         }
     }
 
-    pub(in crate::ui) fn render_card(&self, index: usize, cx: &mut Context<Self>) -> AnyElement {
+    pub(in crate::ui) fn render_card(
+        &self,
+        index: usize,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let Some(row) = self.rows.get(index).cloned() else {
             return div().flex_1().into_any_element();
         };
-        self.render_collection_card(row, format!("card-{index}"), cx)
+        self.render_collection_card(
+            row,
+            format!("card-{index}"),
+            scrolling::FocusTarget::Gallery(index),
+            window,
+            cx,
+        )
     }
 
     pub(in crate::ui) fn render_collection_card(
         &self,
         row: Row,
         key: String,
+        target: scrolling::FocusTarget,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let Row::Group {
@@ -497,8 +559,24 @@ impl MusicApp {
         } else {
             collection_artwork(cover, artist, cx)
         };
+        let focus = self.collection_focus(&key, target, window, cx);
+        let keyboard_page = page.clone();
+        let label = format!("{title}, {subtitle}");
         div()
             .id(SharedString::from(key))
+            .track_focus(&focus)
+            .tab_index(0)
+            .key_context("CollectionCard")
+            .role(gpui_kit::accesskit::Role::Button)
+            .aria_label(label)
+            .border_1()
+            .border_color(rgba(0x00000000))
+            .focus(|d| d.border_color(cx.theme().primary))
+            .on_action(
+                cx.listener(move |this, _: &ActivateCollection, window, cx| {
+                    this.navigate(keyboard_page.clone(), window, cx)
+                }),
+            )
             .flex_1()
             .min_w_0()
             .flex()

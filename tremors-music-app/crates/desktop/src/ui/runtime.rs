@@ -7,6 +7,22 @@ use super::*;
 
 impl MusicApp {
     pub(in crate::ui) fn new(paths: AppPaths, window: &mut Window, cx: &mut Context<Self>) -> Self {
+        let view = cx.entity().downgrade();
+        window.on_window_should_close(cx, move |window, cx| {
+            view.update(cx, |this, cx| {
+                if this.metadata_busy() {
+                    this.status = "Finish saving your edits before closing.".into();
+                    cx.notify();
+                    false
+                } else if this.draft_dirty() {
+                    this.open_overlay(Overlay::CloseUnsaved, window, cx);
+                    false
+                } else {
+                    true
+                }
+            })
+            .unwrap_or(true)
+        });
         let (media, media_rx) = crate::media::open(window);
         let library = service::spawn(paths.clone());
         let audio = audio::spawn();
@@ -25,6 +41,15 @@ impl MusicApp {
                 .step(1.)
                 .default_value(70.)
         });
+        let overlay_focus = cx.focus_handle();
+        let lyrics_scroll = ListState::new(0, ListAlignment::Top, px(200.));
+        let view = cx.entity().downgrade();
+        lyrics_scroll.set_scroll_handler(move |_, _, cx| {
+            let _ = view.update(cx, |this, cx| {
+                this.lyric_follow = false;
+                cx.notify();
+            });
+        });
         let focus = cx.focus_handle();
         window.focus(&focus, cx);
         let (folder_tx, folder_rx) = mpsc::channel();
@@ -33,14 +58,23 @@ impl MusicApp {
             cx.new(|cx| InputState::new(window, cx).placeholder("Minimum seconds"));
         let subscriptions = vec![
             cx.subscribe_in(&search, window, |this, state, event, _, cx| {
-                if matches!(event, InputEvent::Change) && !matches!(this.page, Page::Metadata(_)) {
-                    this.query = state.read(cx).value().to_string();
-                    this.table_scroll = UniformListScrollHandle::new();
-                    if !this.query.trim().is_empty() && this.page != Page::Search {
+                if matches!(event, InputEvent::Change)
+                    && !matches!(this.page, Page::Metadata(_) | Page::LyricsEditor(_))
+                {
+                    let query = state.read(cx).value().to_string();
+                    if query == this.query {
+                        return;
+                    }
+                    if !query.trim().is_empty() && this.page != Page::Search {
+                        this.remember_scroll();
                         this.history.push(this.page.clone());
                         this.page = Page::Search;
+                        this.restore_scroll();
                         this.page_revision += 1;
                     }
+                    this.selected_songs.clear();
+                    this.query = query;
+                    this.table_scroll = UniformListScrollHandle::new();
                     this.rebuild();
                     cx.notify();
                 }
@@ -112,7 +146,11 @@ impl MusicApp {
         })
         .detach();
         Self {
+            backup_review: None,
+            selection_mode: false,
+            selected_songs: Default::default(),
             metadata: None,
+            lyric_editor: None,
             file_tx,
             file_rx,
             picking_file: false,
@@ -139,6 +177,12 @@ impl MusicApp {
             artist_collections: Vec::new(),
             show_artist_albums: true,
             gallery_columns: 4,
+            page_scroll: ScrollHandle::new(),
+            saved_scroll: Vec::new(),
+            home_scroll: Default::default(),
+            overlay_focus,
+            overlay_return_focus: None,
+            overlay_scroll: ScrollHandle::new(),
             table_scroll: UniformListScrollHandle::new(),
             gallery_scroll: UniformListScrollHandle::new(),
             query: String::new(),
@@ -151,6 +195,10 @@ impl MusicApp {
             _subscriptions: subscriptions,
             queue: Queue::default(),
             generation: 0,
+            prepared_next: None,
+            audio_edit_pending: false,
+            next_token: 0,
+            sound: audio_settings::Controls::new(window, cx),
             is_playing: false,
             loading: false,
             ended: false,
@@ -166,7 +214,10 @@ impl MusicApp {
             saved_at: Instant::now(),
             muted: false,
             immersive: false,
-            lyrics_scroll: UniformListScrollHandle::new(),
+            lyrics_scroll,
+            lyric_plain_lines: Arc::new(Vec::new()),
+            lyrics_source: None,
+            lyric_follow: true,
             lyric_index: None,
             lyric_lines: Arc::new(Vec::new()),
             media,
@@ -194,9 +245,26 @@ impl MusicApp {
         while let Ok(event) = self.library.events.try_recv() {
             changed = true;
             match event {
+                LibraryEvent::BackupLoaded(document) => self.review_backup(*document, window, cx),
+                LibraryEvent::BackupRestored {
+                    preferences,
+                    warnings,
+                } => {
+                    self.status = "Library curation restored.".into();
+                    self.warnings = warnings;
+                    if let Some(preferences) = preferences {
+                        self.preferences = preferences;
+                        self.initialize_sound(window, cx);
+                        self.queue.set_shuffle(self.preferences.shuffle);
+                        self.queue.repeat = self.preferences.repeat;
+                        self.apply_theme(window, cx);
+                        self.set_volume(self.preferences.volume, window, cx);
+                    }
+                }
                 LibraryEvent::Snapshot(snapshot) => {
                     if !self.initialized {
                         self.preferences = snapshot.preferences.clone();
+                        self.initialize_sound(window, cx);
                         self.minimum_duration.update(cx, |input, cx| {
                             input.set_value(
                                 self.preferences.minimum_duration.to_string(),
@@ -252,6 +320,16 @@ impl MusicApp {
                     self.status = message;
                     self.warnings = warnings;
                 }
+                LibraryEvent::LyricsLoaded(document) => self.receive_lyrics(document, window, cx),
+                LibraryEvent::LyricsError(id, message) => {
+                    self.status = message.clone();
+                    if let Some(editor) = &mut self.lyric_editor
+                        && editor.document.song_id == id
+                    {
+                        editor.saving = false;
+                        editor.message = message;
+                    }
+                }
                 LibraryEvent::MetadataLoaded(document) => {
                     self.receive_metadata(*document, false, window, cx)
                 }
@@ -286,6 +364,45 @@ impl MusicApp {
         }
         while let Ok(event) = self.audio.events.try_recv() {
             match event {
+                AudioEvent::EditReady {
+                    generation,
+                    released,
+                } => {
+                    self.audio_edit_pending = false;
+                    if released && generation == self.generation {
+                        self.prepared_next = None;
+                        self.loaded = false;
+                        self.loading = false;
+                        self.is_playing = false;
+                        changed = true;
+                    }
+                }
+                AudioEvent::Advanced {
+                    generation,
+                    track,
+                    duration,
+                } if generation == self.generation => {
+                    if self.prepared_next.as_ref().is_some_and(|next| {
+                        next.token == track.token && next.song_id == track.song_id
+                    }) && self.queue.next(true).is_some()
+                    {
+                        self.prepared_next = None;
+                        self.position = 0.;
+                        self.duration = duration
+                            .map(|d| d.as_secs_f64())
+                            .unwrap_or_else(|| self.queue.current().map_or(0., |s| s.duration));
+                        self.loading = false;
+                        self.loaded = true;
+                        self.ended = false;
+                        self.cache_lyrics();
+                        self.persist_queue();
+                        self.send_library(LibraryCommand::Played(track.song_id));
+                        self.rebuild();
+                        changed = true;
+                    } else {
+                        self.load_current_at(self.position);
+                    }
+                }
                 AudioEvent::Loaded {
                     song_id,
                     generation,
@@ -347,6 +464,7 @@ impl MusicApp {
                 _ => {}
             }
         }
+        self.sync_preload();
         changed |= self.poll_files();
         changed |= self.poll_timer();
         while let Ok(folder) = self.folder_rx.try_recv() {
@@ -426,12 +544,16 @@ impl MusicApp {
             self.persist_queue();
         }
         if self.page == Page::Lyrics || self.immersive {
-            let active = active_line(&self.lyric_lines, self.position);
+            let active = active_line(&self.lyric_lines, self.lyric_position());
             if active != self.lyric_index {
+                for index in self.lyric_index.into_iter().chain(active) {
+                    self.lyrics_scroll.remeasure_items(index..index + 1);
+                }
                 self.lyric_index = active;
-                if let Some(index) = active {
-                    self.lyrics_scroll
-                        .scroll_to_item(index, ScrollStrategy::Center);
+                if self.lyric_follow
+                    && let Some(index) = active
+                {
+                    self.lyrics_scroll.scroll_to_reveal_item(index);
                 }
                 changed = true;
             }

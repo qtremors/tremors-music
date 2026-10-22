@@ -132,6 +132,9 @@ impl MusicApp {
             ("Ctrl + L", "Lyrics"),
             ("Ctrl + F or F11", "Fullscreen player"),
             ("Alt + Left", "Go back"),
+            ("Page Up / Page Down", "Scroll the current page"),
+            ("Home / End", "Go to the start / end"),
+            ("Enter / Space", "Open a focused collection"),
             ("Escape", "Close dialog / leave fullscreen"),
         ] {
             shortcuts = shortcuts.child(
@@ -148,13 +151,18 @@ impl MusicApp {
                     .child(action),
             );
         }
+        let backup = settings_section("Backup & restore",cx)
+            .child(div().text_sm().text_color(cx.theme().muted_foreground).child("Save playlists, favorites, play history, preferences and custom images in a local curation backup. Music files are kept separately."))
+            .child(div().flex().gap_3()
+                .child(Button::new("backup-curation").label("Save backup").disabled(self.picking_file || self.scanning).on_click(cx.listener(|this,_,_,cx| {this.pick_file(super::super::file_tasks::FileTask::Backup);cx.notify();})))
+                .child(Button::new("restore-curation").label("Review backup…").disabled(self.picking_file || self.scanning).on_click(cx.listener(|this,_,_,cx| {this.pick_file(super::super::file_tasks::FileTask::RestoreBackup);cx.notify();}))));
         let reset = settings_section("Library data", cx)
             .child(div().text_sm().text_color(cx.theme().muted_foreground).child("Reset removes library records, playlists, favorites, and play counts. Your music files are never deleted."))
             .child(div().flex().gap_3()
                 .child(Button::new("reset-keep").danger().label("Reset, keep folders").disabled(self.scanning)
-                    .on_click(cx.listener(|this, _, _, cx| { this.overlay = Some(Overlay::Reset(false)); cx.notify(); })))
+                    .on_click(cx.listener(|this, _, window, cx| { this.open_overlay(Overlay::Reset(false), window, cx); cx.notify(); })))
                 .child(Button::new("reset-all").danger().label("Reset everything").disabled(self.scanning)
-                    .on_click(cx.listener(|this, _, _, cx| { this.overlay = Some(Overlay::Reset(true)); cx.notify(); }))));
+                    .on_click(cx.listener(|this, _, window, cx| { this.open_overlay(Overlay::Reset(true), window, cx); cx.notify(); }))));
         div()
             .id("settings-content")
             .flex_1()
@@ -167,6 +175,8 @@ impl MusicApp {
             .gap_5()
             .child(appearance)
             .child(playback)
+            .child(self.render_sound_settings(cx))
+            .child(backup)
             .child(shortcuts)
             .child(reset)
             .child(
@@ -178,7 +188,8 @@ impl MusicApp {
                         env!("CARGO_PKG_VERSION")
                     )),
             )
-            .overflow_y_scrollbar()
+            .track_scroll(&self.page_scroll)
+            .vertical_scrollbar(&self.page_scroll)
             .into_any_element()
     }
 }

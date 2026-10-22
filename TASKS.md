@@ -1,8 +1,8 @@
 # Tremors Music Task Backlog
 
-> **Version:** 0.1.0 | **Last Updated:** 2026-10-20
+> **Version:** 0.1.0 | **Last Updated:** 2026-10-22
 
-10 open findings and four release checks. Only unfinished work is listed. Task IDs are retained for reference; recheck earlier evidence before implementation.
+9 open findings and four release checks. Only unfinished work is listed. Task IDs are retained for reference; recheck earlier evidence before implementation.
 
 Code paths are relative to `tremors-music-app/`. See [DEVELOPMENT.md](DEVELOPMENT.md#verification) for test commands, manual checklists, and recorded results.
 
@@ -49,7 +49,7 @@ Code paths are relative to `tremors-music-app/`. See [DEVELOPMENT.md](DEVELOPMEN
 
 - [ ] **UI-001 | High | Make primary workflows keyboard-accessible.**
   - **Location:** `crates/desktop/src/ui/views/`.
-  - **Current:** Windows inspection of custom navigation, rows, controls, and overlays previously found missing accessible names/states and incomplete keyboard and modal-focus handling.
+  - **Current:** Collection/discovery cards now have roles, labels, visible keyboard focus and Enter/Space activation; modal dialogs trap focus and restore a valid target. The Linux interaction audit covers these flows, but complete row/control keyboard coverage and screen-reader behavior remain unverified.
   - **Change:** Add roles, labels, states, keyboard activation, visible focus, and modal focus restoration.
   - **Verify:** All navigation, playlist actions, player controls, lyric seeking, and dialogs with keyboard-only input and a screen reader.
 
@@ -58,12 +58,6 @@ Code paths are relative to `tremors-music-app/`. See [DEVELOPMENT.md](DEVELOPMEN
   - **Current:** The desktop now compares a revision of published metadata fields, including title, artist, album, cover, and duration, and refreshes after editor saves. Native same-track rescan observations remain outstanding.
   - **Change:** Implemented in `crates/desktop/src/media.rs`; verify on each native media-control backend.
   - **Verify:** Same-ID rescans while playing and paused on Windows and Linux without repeatedly publishing unchanged state.
-
-- [ ] **UI-003 | Medium | Show playback errors in fullscreen.**
-  - **Location:** `crates/desktop/src/ui/views/mod.rs`; `crates/desktop/src/ui/views/fullscreen.rs`.
-  - **Current:** The status area is hidden in immersive mode with no replacement error feedback. Failure-path runtime checks remain outstanding.
-  - **Change:** Show failures with a useful retry or return action.
-  - **Verify:** Missing/unreadable tracks, decoding failures, device errors, and stopped workers in both layouts.
 
 ## Windows backend
 

@@ -3,7 +3,7 @@
 
 //! Metadata form state. Reading and writing music files belongs to the library worker.
 use super::*;
-use gpui_kit::component::input::{Textarea, TextareaState};
+use gpui_kit::component::input::TextareaState;
 use tremors_core::metadata::MetadataDocument;
 
 pub(super) enum FieldInput {
@@ -17,12 +17,15 @@ impl FieldInput {
             Self::Paragraph(input) => input.read(cx).value().to_string(),
         }
     }
-    pub(super) fn element(&self, disabled: bool) -> AnyElement {
+    pub(super) fn element(&self, disabled: bool, label: &str) -> AnyElement {
         match self {
-            Self::Line(input) => Input::new(input).disabled(disabled).into_any_element(),
-            Self::Paragraph(input) => Textarea::new(input)
+            Self::Line(input) => inputs::field(input)
+                .aria_label(label.to_owned())
                 .disabled(disabled)
-                .h(px(160.))
+                .into_any_element(),
+            Self::Paragraph(input) => inputs::paragraph(input, 160.)
+                .aria_label(label.to_owned())
+                .disabled(disabled)
                 .into_any_element(),
         }
     }
@@ -39,6 +42,7 @@ pub(super) struct MetadataEditor {
 impl MusicApp {
     pub(in crate::ui) fn metadata_busy(&self) -> bool {
         self.metadata.as_ref().is_some_and(|e| e.saving)
+            || self.lyric_editor.as_ref().is_some_and(|e| e.saving)
     }
     pub(in crate::ui) fn open_metadata(
         &mut self,
@@ -98,6 +102,9 @@ impl MusicApp {
     ) {
         if self.page != Page::Metadata(document.song_id) {
             return;
+        }
+        if saved {
+            self.status = "Metadata saved to file.".into();
         }
         let mut inputs = Vec::new();
         let mut subscriptions = Vec::new();
@@ -221,22 +228,16 @@ impl MusicApp {
         }
         editor.saving = true;
         editor.message = "Saving metadata…".into();
-        let release = if self
-            .queue
-            .current()
-            .is_some_and(|s| s.id == document.song_id)
-        {
-            let (tx, rx) = mpsc::channel();
-            self.generation += 1;
-            self.send_audio(AudioCommand::Release(tx));
-            self.loaded = false;
-            self.loading = false;
-            self.is_playing = false;
-            Some(rx)
-        } else {
-            None
-        };
-        self.send_library(LibraryCommand::SaveMetadata(Box::new(document), release));
+        self.audio_edit_pending = true;
+        let (ack, release) = mpsc::channel();
+        self.send_audio(AudioCommand::ReleaseForEdit {
+            path: document.path.clone(),
+            ack,
+        });
+        self.send_library(LibraryCommand::SaveMetadata(
+            Box::new(document),
+            Some(release),
+        ));
         cx.notify();
     }
 }

@@ -5,14 +5,19 @@
 use super::*;
 use tremors_core::sleep_timer::{SleepTimer, TimerState};
 impl MusicApp {
-    pub(in crate::ui) fn start_timer(&mut self, minutes: u64, cx: &mut Context<Self>) {
+    pub(in crate::ui) fn start_timer(
+        &mut self,
+        minutes: u64,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.sleep_timer = Some(SleepTimer::new(
             Instant::now(),
             Duration::from_secs(minutes * 60),
             self.timer_finish_track,
             Duration::from_secs(if self.timer_fade { 10 } else { 0 }),
         ));
-        self.overlay = None;
+        self.close_overlay(window, cx);
         self.status = format!("Sleep timer set for {minutes} minutes.");
         cx.notify();
     }

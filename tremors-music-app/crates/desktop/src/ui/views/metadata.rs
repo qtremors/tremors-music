@@ -43,7 +43,7 @@ impl MusicApp {
                             .text_color(cx.theme().muted_foreground)
                             .child(field.label.clone()),
                     )
-                    .child(input.element(saving)),
+                    .child(input.element(saving, &field.label)),
             );
         }
         let mut pictures = div().flex().flex_col().gap_3();
@@ -124,7 +124,8 @@ impl MusicApp {
                                 .child("Description"),
                         )
                         .child(
-                            Input::new(&editor.picture_descriptions[index])
+                            inputs::field(&editor.picture_descriptions[index])
+                                .aria_label("Artwork description")
                                 .disabled(saving || simple_pictures),
                         ),
                 );
@@ -216,7 +217,7 @@ impl MusicApp {
             );
         let body = div().id("metadata-scroll").flex_1().min_h_0().overflow_y_scroll().px_8().pb_8().flex().flex_col().gap_5()
             .child(div().text_xs().text_color(cx.theme().muted_foreground).child(editor.document.path.display().to_string()))
-            .when(editor.document.has_sidecar_lyrics, |d| d.child(div().text_sm().child("This track has a local .lrc file. It takes priority over embedded lyrics during playback.")))
+            .when(editor.document.has_sidecar_lyrics, |d| d.child(div().text_sm().child("This track has a local lyric sidecar. It takes priority over embedded lyrics during playback.")))
             .child(form)
             .child(Button::new("add-metadata-field").label("Add extended field").disabled(saving).dropdown_menu(move |mut menu,_,_| {
                 for (index, (_,label)) in fields.iter().enumerate() {
@@ -228,8 +229,8 @@ impl MusicApp {
             .child(pictures)
             .child(Button::new("add-metadata-picture").label("Add artwork").disabled(saving || self.picking_file)
                 .on_click(cx.listener(move |this,_,_,cx| { this.pick_file(FileTask::MetadataPicture(id)); cx.notify(); })))
-            .child(div().text_xs().text_color(cx.theme().muted_foreground).child("Available fields depend on the file format. Audio properties are read-only. Playback of this track pauses while saving."))
-            .overflow_y_scrollbar();
+            .child(div().text_xs().text_color(cx.theme().muted_foreground).child("Available fields depend on the file format. Audio properties are read-only. Playback pauses if this track is open or preloaded while saving."))
+            .track_scroll(&self.page_scroll).vertical_scrollbar(&self.page_scroll);
         div()
             .flex_1()
             .min_h_0()

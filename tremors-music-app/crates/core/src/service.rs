@@ -25,7 +25,12 @@ use std::{
 #[derive(Debug)]
 pub enum LibraryCommand {
     Refresh,
+    Backup(PathBuf),
+    ReadBackup(PathBuf),
+    RestoreBackup(Box<crate::backup::Restore>),
     ReadMetadata(i64),
+    ReadLyrics(i64),
+    SaveLyrics(crate::lyrics::file::Document),
     SaveMetadata(Box<crate::metadata::MetadataDocument>, Option<Receiver<()>>),
     LoadPicture(i64, PathBuf),
     SetArtwork(String, Option<PathBuf>),
@@ -41,6 +46,8 @@ pub enum LibraryCommand {
     RemoveFolder(PathBuf),
     Scan,
     Favorite(i64),
+    SetFavorites(Vec<i64>, bool),
+    AddManyToPlaylist(i64, Vec<i64>),
     Played(i64),
     Preferences(Preferences),
     CreatePlaylist(String),
@@ -53,12 +60,19 @@ pub enum LibraryCommand {
 
 pub enum LibraryEvent {
     Snapshot(Arc<Snapshot>),
+    BackupLoaded(Box<crate::backup::Backup>),
+    BackupRestored {
+        preferences: Option<Preferences>,
+        warnings: Vec<String>,
+    },
     ScanStarted,
     ScanProgress(ScanProgress),
     ScanFinished {
         message: String,
         warnings: Vec<String>,
     },
+    LyricsLoaded(crate::lyrics::file::Document),
+    LyricsError(i64, String),
     MetadataLoaded(Box<crate::metadata::MetadataDocument>),
     MetadataSaved(Box<crate::metadata::MetadataDocument>),
     MetadataError(i64, String),
@@ -191,6 +205,10 @@ fn worker(
                 Err(error) => {
                     let message = format!("{error:#}");
                     tx.send(match &command {
+                        LibraryCommand::ReadLyrics(id) => LibraryEvent::LyricsError(*id, message),
+                        LibraryCommand::SaveLyrics(doc) => {
+                            LibraryEvent::LyricsError(doc.song_id, message)
+                        }
                         LibraryCommand::ReadMetadata(id) => {
                             LibraryEvent::MetadataError(*id, message)
                         }
@@ -205,7 +223,12 @@ fn worker(
         }
         let result = (|| -> Result<()> {
             match command {
-                LibraryCommand::ReadMetadata(_)
+                LibraryCommand::Backup(_)
+                | LibraryCommand::ReadBackup(_)
+                | LibraryCommand::RestoreBackup(_)
+                | LibraryCommand::ReadLyrics(_)
+                | LibraryCommand::SaveLyrics(_)
+                | LibraryCommand::ReadMetadata(_)
                 | LibraryCommand::SaveMetadata(..)
                 | LibraryCommand::LoadPicture(..)
                 | LibraryCommand::SetArtwork(..)
@@ -228,6 +251,10 @@ fn worker(
                 }
                 LibraryCommand::AddFolder(path) => library.add_root(&path)?,
                 LibraryCommand::RemoveFolder(path) => library.remove_root(&path)?,
+                LibraryCommand::SetFavorites(ids, value) => library.set_favorites(&ids, value)?,
+                LibraryCommand::AddManyToPlaylist(id, songs) => {
+                    library.add_many_to_playlist(id, &songs)?
+                }
                 LibraryCommand::Favorite(id) => library.favorite(id)?,
                 LibraryCommand::Played(id) => library.played(id)?,
                 LibraryCommand::Preferences(p) => library.save_preferences(&p)?,

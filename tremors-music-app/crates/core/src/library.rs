@@ -15,7 +15,7 @@ use std::{
 };
 
 pub struct Library {
-    connection: Connection,
+    pub(crate) connection: Connection,
 }
 
 const SONG_COLUMNS: &str = "id,path,title,artist,album,album_artist,genre,year,track,disc,duration,cover,favorite,play_count,added_at,last_played,metadata";
@@ -249,6 +249,24 @@ impl Library {
             if song.path.starts_with(root) && !seen.contains(&song.path) {
                 tx.execute("DELETE FROM songs WHERE id=?", [song.id])?;
             }
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
+    pub fn set_favorites(&mut self, ids: &[i64], value: bool) -> Result<()> {
+        let tx = self.connection.transaction()?;
+        for id in ids {
+            tx.execute("UPDATE songs SET favorite=? WHERE id=?", params![value, id])?;
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
+    pub fn add_many_to_playlist(&mut self, playlist: i64, songs: &[i64]) -> Result<()> {
+        let tx = self.connection.transaction()?;
+        for song in songs {
+            tx.execute("INSERT INTO playlist_entries(playlist_id,song_id,position) VALUES(?1,?2,(SELECT COALESCE(MAX(position)+1,0) FROM playlist_entries WHERE playlist_id=?1))", params![playlist,song])?;
         }
         tx.commit()?;
         Ok(())
